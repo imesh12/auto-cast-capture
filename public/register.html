@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Client Registration | Town Capture</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{
+  margin:0;font-family:Arial,sans-serif;background:#f3f5f7;
+  display:flex;justify-content:center;padding:40px;
+}
+.form-container{
+  background:white;width:100%;max-width:600px;border-radius:12px;
+  padding:30px;box-shadow:0 4px 20px rgba(0,0,0,0.08);
+}
+h2{text-align:center;margin-bottom:25px;color:#333;}
+input,select{
+  width:100%;padding:12px;margin-top:8px;margin-bottom:16px;
+  border:1px solid #ddd;border-radius:6px;font-size:1rem;box-sizing:border-box;
+}
+label{font-weight:600;font-size:.95rem;color:#333;margin-bottom:4px;display:block;}
+section{margin-bottom:20px;}
+.btn{
+  width:100%;padding:14px;background:#2f80ed;color:white;font-size:1.06rem;
+  border:none;border-radius:8px;cursor:pointer;font-weight:600;
+  transition:.3s;
+}
+.btn:hover{background:#1e6ccc;}
+.btn:disabled{background:#ccc;cursor:not-allowed;}
+.hidden{display:none;}
+.status{margin-top:10px;font-size:.9rem;padding:10px;border-radius:6px;}
+.status.ok{color:green;background:#d4edda;border:1px solid #c3e6cb;}
+.status.error{color:#721c24;background:#f8d7da;border:1px solid #f5c6cb;}
+.loading{padding:10px;text-align:center;}
+</style>
+</head>
+<body>
+<div class="form-container">
+  <h2>Client Registration</h2>
+
+  <form id="registerForm" autocomplete="off">
+    <!-- Base -->
+    <section>
+      <label>Name *</label>
+      <input id="name" required minlength="2">
+
+      <label>Email *</label>
+      <input id="email" type="email" required>
+
+      <label>Password *</label>
+      <input id="password" type="password" required minlength="6">
+
+      <label>Username</label>
+      <input id="username" placeholder="(optional)">
+    </section>
+
+    <!-- Type -->
+    <section>
+      <label>Account Type *</label>
+      <select id="typeSelect" required>
+        <option value="">Select type...</option>
+        <option value="individual">Individual</option>
+        <option value="company">Company</option>
+      </select>
+    </section>
+
+    <!-- Company -->
+    <section id="companySection" class="hidden">
+      <label>Company Name</label>
+      <input id="companyName">
+
+      <label>Company Postal Code</label>
+      <input id="companyPostalCode">
+
+      <label>Company Address</label>
+      <input id="companyAddress">
+
+      <label>Company Phone</label>
+      <input id="companyPhone">
+
+      <label>Company Email</label>
+      <input id="companyEmail" type="email">
+
+      <label>Company Website</label>
+      <input id="companyWebsite" placeholder="https://">
+    </section>
+
+    <button type="submit" class="btn" id="submitBtn">Submit Registration</button>
+    <div id="status" class="status"></div>
+  </form>
+</div>
+
+<script>
+const API = "https://192.168.1.183:4450/api/register";
+const form = document.getElementById("registerForm");
+const statusEl = document.getElementById("status");
+const submitBtn = document.getElementById("submitBtn");
+const typeSelect = document.getElementById("typeSelect");
+const companySection = document.getElementById("companySection");
+
+// Cache all form elements
+const elements = {
+  name: document.getElementById("name"),
+  email: document.getElementById("email"),
+  password: document.getElementById("password"),
+  username: document.getElementById("username"),
+  companyName: document.getElementById("companyName"),
+  companyPostalCode: document.getElementById("companyPostalCode"),
+  companyAddress: document.getElementById("companyAddress"),
+  companyPhone: document.getElementById("companyPhone"),
+  companyEmail: document.getElementById("companyEmail"),
+  companyWebsite: document.getElementById("companyWebsite")
+};
+
+// Toggle company section
+typeSelect.addEventListener("change", () => {
+  companySection.classList.toggle("hidden", typeSelect.value !== "company");
+});
+
+// Form submit
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  
+  // Reset status
+  statusEl.textContent = "";
+  statusEl.className = "status";
+  
+  // Disable submit
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Submitting...";
+  
+  try {
+    // Build payload
+    const payload = {
+      name: elements.name.value.trim(),
+      email: elements.email.value.trim(),
+      password: elements.password.value.trim(),
+      username: elements.username.value.trim(),
+      type: typeSelect.value,
+      companyName: elements.companyName.value.trim(),
+      companyPostalCode: elements.companyPostalCode.value.trim(),
+      companyAddress: elements.companyAddress.value.trim(),
+      companyPhone: elements.companyPhone.value.trim(),
+      companyEmail: elements.companyEmail.value.trim(),
+      companyWebsite: elements.companyWebsite.value.trim()
+    };
+
+    // Client validation
+    if (!payload.name || !payload.email || !payload.password || !payload.type) {
+      throw new Error("Name, Email, Password, and Account Type are required.");
+    }
+    
+    if (payload.password.length < 6) {
+      throw new Error("Password must be at least 6 characters.");
+    }
+
+    // Send request
+    const res = await fetch(API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (res.ok && data.ok) {
+      statusEl.innerHTML = "✅ Registration successful! Check your email for login details.";
+      statusEl.className = "status ok";
+      form.reset();
+      typeSelect.value = "";
+      companySection.classList.add("hidden");
+    } else {
+      throw new Error(data.error || "Registration failed. Please try again.");
+    }
+
+  } catch (err) {
+    console.error("Registration error:", err);
+    statusEl.innerHTML = `❌ ${err.message}`;
+    statusEl.className = "status error";
+  } finally {
+    // Re-enable submit
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Submit Registration";
+  }
+});
+</script>
+</body>
+</html>

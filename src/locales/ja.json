@@ -1,0 +1,55 @@
+{
+  "title": "タウンキャプチャー ログイン",
+  "email": "メールアドレス",
+  "password": "パスワード",
+  "placeholderEmail": "you@example.com",
+  "placeholderPassword": "パスワードを入力",
+  "login": "ログイン",
+  "signingIn": "サインイン中...",
+  "forgot": "パスワードを忘れましたか？",
+  "resetSent": "パスワードリセットメールを送信しました",
+  "enterEmail": "先にメールを入力してください。",
+  "year": "タウンキャプチャー {{year}}",
+  "resetTitle": "パスワード再設定",
+"checking": "確認中...",
+"newPassword": "新しいパスワード",
+"confirmPassword": "パスワード確認",
+"savePassword": "パスワードを保存",
+"passwordUpdated": "パスワードを更新しました！",
+"passwordNotMatch": "パスワードが一致しません",
+"invalidLink": "無効なリンクまたは期限切れです",
+ 
+"payment": {
+  "cameraStatus": "カメラ支払い・ステータス",
+  "camera": "カメラ",
+  "status": "ステータス",
+  "nextBilling": "次回請求日",
+  "subId": "サブスクリプションID",
+  "invoices": "請求書",
+  "activate": "有効化",
+  "cancel": "解約",
+  "details": "詳細",
+  "noCameras": "カメラがありません。「+ カメラ追加」を使用してください。",
+  "goDashboard": "ダッシュボードへ戻る",
+
+  "cancelTitle": "サブスクリプションを解約しますか？",
+  "cancelDesc": "解約は次回請求日で有効になります。それまでは引き続きご利用いただけます。",
+  "cancelInfo": "次回請求日以降は請求されず、自動で解約となります。",
+  "confirmCancel": "解約を予約する",
+  "cancelFailed": "解約の処理に失敗しました。",
+  "cancelEffectiveDate": "解約予定日",
+  "billingOrCancelDate": "次回請求日 / 解約予定日",
+  "canceling": "解約予定",
+  "cancelScheduled": "解約予約済み",
+  "cancelScheduledHint": "すでに解約が予約されています",
+  "download": "PDF",
+  "noInvoices": "請求書がありません"
+},
+"common": {
+  "back": "戻る",
+  "processing": "処理中…"
+}
+
+
+
+}

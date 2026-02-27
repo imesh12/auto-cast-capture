@@ -1,0 +1,55 @@
+{
+  "title": "Town Capture Login",
+  "email": "Email",
+  "password": "Password",
+  "placeholderEmail": "you@example.com",
+  "placeholderPassword": "Enter password",
+  "login": "Login",
+  "signingIn": "Signing in...",
+  "forgot": "Forgot password?",
+  "resetSent": "Password reset email sent",
+  "enterEmail": "Please enter your email first.",
+  "year": "Town Capture {{year}}",
+  "resetTitle": "Reset Password",
+"checking": "Checking...",
+"newPassword": "New Password",
+"confirmPassword": "Confirm Password",
+"savePassword": "Save Password",
+"passwordUpdated": "Password updated!",
+"passwordNotMatch": "Passwords do not match",
+"invalidLink": "Invalid or expired reset link",
+"payment": {
+  "cameraStatus": "Camera Payment & Status",
+  "camera": "Camera",
+  "status": "Status",
+  "nextBilling": "Next Billing",
+  "subId": "Subscription ID",
+  "invoices": "Invoices",
+  "activate": "Activate",
+  "cancel": "Cancel",
+  "details": "Details",
+  "noCameras": "No cameras. Use “+ Add Camera”.",
+  "goDashboard": "Back to Dashboard",
+
+  "cancelTitle": "Cancel subscription?",
+ "cancelDesc": "The subscription will be canceled on the next billing date. You can continue using the service until then.",
+ "cancelInfo": "After the next billing date, no further charges will be made and the subscription will be canceled automatically.",
+"confirmCancel": "Schedule cancellation",
+"cancelFailed": "Failed to cancel the subscription. Please try again.",
+
+"billingOrCancelDate": "Next billing / Cancellation date",
+  "cancelEffectiveDate": "Cancellation date",
+  "canceling": "Canceling",
+  "cancelScheduled": "Cancel scheduled",
+  "cancelScheduledHint": "Cancellation is already scheduled",
+  "download": "PDF",
+  "noInvoices": "No invoices"
+
+},
+"common": {
+  "back": "Back",
+  "processing": "Processing..."
+}
+
+
+}
