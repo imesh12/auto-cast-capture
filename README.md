@@ -75,9 +75,8 @@ npm install
 # server
 cd server
 npm install
-cd ..
+node server.js
 
 # web app (optional)
-cd web
-npm install
-cd ..
+cd src
+npm start 
