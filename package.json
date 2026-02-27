@@ -1,6 +1,7 @@
 {
   "name": "town-capture-client",
   "version": "1.0.0",
+  "homepage": "https://imesh12.github.io/auto-cast-capture",
   "dependencies": {
     "@dataconnect/generated": "file:src/dataconnect-generated",
     "@googlemaps/markerclusterer": "^2.6.2",
@@ -28,7 +29,9 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build"
+    "build": "react-scripts build",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build"
   },
   "browserslist": {
     "production": [
