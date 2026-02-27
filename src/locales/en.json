@@ -1,5 +1,5 @@
 {
-  "title": "Town Capture Login",
+  "title": "AutoCaster - View",
   "email": "Email",
   "password": "Password",
   "placeholderEmail": "you@example.com",
@@ -9,7 +9,7 @@
   "forgot": "Forgot password?",
   "resetSent": "Password reset email sent",
   "enterEmail": "Please enter your email first.",
-  "year": "Town Capture {{year}}",
+  "year": "AutoCaster-View {{year}}",
   "resetTitle": "Reset Password",
 "checking": "Checking...",
 "newPassword": "New Password",
