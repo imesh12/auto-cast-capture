@@ -1,0 +1,1650 @@
+<!-- capture.html (FINAL + OFFLINE BLUR CARD) -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AutoCaster - View</title>
+<script src="/hls.js"></script>
+<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,700&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --bg:#f4f7ff;
+  --card:#ffffff;
+  --accent:#3b82f6;
+  --accent2:#22c55e;
+  --danger:#ef4444;
+  --text:#0f172a;
+  --muted:#64748b;
+  --border:#e5e7eb;
+  --shadow: 0 20px 60px rgba(15,23,42,.12);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:'Open Sans',system-ui,sans-serif;
+  color:var(--text);
+  background: radial-gradient(circle at top, #eef2ff, var(--bg));
+}
+
+/* ========= OFFLINE OVERLAY (BLUR + CARD) ========= */
+.tc-offline-overlay{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+.tc-offline-overlay::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:rgba(2,6,23,.55);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.tc-offline-card{
+  position:relative;
+  width:min(560px, 92vw);
+  border-radius:22px;
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.22);
+  box-shadow:0 40px 120px rgba(0,0,0,.45);
+  padding:20px 18px 16px;
+  color:#fff;
+  text-align:center;
+}
+.tc-offline-title{
+  margin:0;
+  font-size:1.25rem;
+  font-weight:900;
+  letter-spacing:.2px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+.tc-offline-sub{
+  margin:10px 0 0;
+  color:rgba(255,255,255,.88);
+  font-size:.92rem;
+  line-height:1.55;
+}
+.tc-offline-badge{
+  display:inline-flex;
+  gap:8px;
+  align-items:center;
+  margin-top:12px;
+  padding:8px 10px;
+  border-radius:999px;
+  background:rgba(239,68,68,.18);
+  border:1px solid rgba(239,68,68,.35);
+  color:#ffd1d1;
+  font-size:.8rem;
+  font-weight:900;
+  letter-spacing:.6px;
+}
+.tc-offline-actions{
+  margin-top:14px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+.tc-btn{
+  border:none;
+  border-radius:14px;
+  cursor:pointer;
+  font-weight:900;
+  padding:12px 14px;
+  font-size:.95rem;
+}
+.tc-btn-primary{
+  background:linear-gradient(180deg,#3b82f6,#2563eb);
+  color:#fff;
+  box-shadow:0 18px 40px rgba(59,130,246,.22);
+}
+.tc-btn-ghost{
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.18);
+  color:rgba(255,255,255,.92);
+}
+.tc-muted{
+  margin-top:12px;
+  font-size:.78rem;
+  color:rgba(255,255,255,.72);
+  line-height:1.45;
+}
+
+/* Blur your page content when blocked */
+body.tc-blocked .start-hero,
+body.tc-blocked #appContainer{
+  filter: blur(10px);
+  transform: scale(1.01);
+  transition: filter .18s ease, transform .18s ease;
+  pointer-events:none;
+  user-select:none;
+}
+
+/* ========= FULLSCREEN START HERO ========= */
+.start-hero{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:22px 14px;
+  position:relative;
+  overflow:hidden;
+}
+
+.start-hero::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(180deg, rgba(15,23,42,.55), rgba(15,23,42,.55)),
+    url("https://firebasestorage.googleapis.com/v0/b/towncapture-25aa5.firebasestorage.app/o/tools%2Fmainimage.jpg?alt=media&token=019bac92-a9bc-4ae4-9fa5-5273534f654a");
+  background-size:cover;
+  background-position:center;
+  filter:saturate(1.05);
+  transform:scale(1.02);
+}
+
+.start-card{
+  position:relative;
+  width:min(520px, 92vw);
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.22);
+  backdrop-filter: blur(16px);
+  border-radius:22px;
+  box-shadow:0 40px 120px rgba(0,0,0,.35);
+  padding:22px 18px 18px;
+  text-align:center;
+  color:#fff;
+}
+
+.start-title{
+  font-size:1.2rem;
+  font-weight:900;
+  letter-spacing:.3px;
+  margin:0 0 6px;
+}
+.start-sub{
+  margin:0 0 16px;
+  color:rgba(255,255,255,.9);
+  font-size:.92rem;
+  line-height:1.35;
+}
+.hero-badge{
+  display:inline-flex;
+  gap:10px;
+  align-items:center;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.26);
+  background:rgba(255,255,255,.10);
+  font-size:.86rem;
+  margin:8px 0 16px;
+}
+.hero-dot{
+  width:10px;height:10px;border-radius:50%;
+  background:linear-gradient(180deg,#60a5fa,#3b82f6);
+  box-shadow:0 10px 22px rgba(59,130,246,.5);
+}
+.hero-btn{
+  width:100%;
+  border:none;
+  padding:16px 16px;
+  border-radius:16px;
+  cursor:pointer;
+  color:white;
+  font-size:1.05rem;
+  font-weight:900;
+  background:linear-gradient(180deg,#22c55e,#16a34a);
+  box-shadow:0 20px 50px rgba(34,197,94,.28);
+}
+.hero-btn:active{ transform:translateY(1px); }
+.hero-note{
+  margin:14px 0 0;
+  font-size:.82rem;
+  color:rgba(255,255,255,.85);
+}
+
+/* ========= APP LAYOUT ========= */
+.container{
+  max-width:1100px;
+  margin:auto;
+  padding:18px 14px 30px;
+  display:none; /* shown after "サービス利用" */
+}
+
+.header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin:10px 0 14px;
+}
+.brand{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.logo-dot{
+  width:14px;height:14px;border-radius:50%;
+  background:linear-gradient(180deg,var(--accent),#60a5fa);
+  box-shadow:0 8px 18px rgba(59,130,246,.35);
+}
+h1{margin:0;font-size:1.05rem;font-weight:900;letter-spacing:.2px;}
+.sub{color:var(--muted);font-size:.85rem;margin-top:2px}
+
+.badge{
+  padding:8px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.7);
+  font-size:.82rem;
+  color:var(--muted);
+}
+
+/* ========= TITLE BAR ========= */
+.titlebar{
+  margin:14px 0 10px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.page-title{
+  font-size:1.15rem;
+  font-weight:900;
+  margin:0;
+}
+.page-hint{
+  font-size:.85rem;
+  color:var(--muted);
+  margin:3px 0 0;
+}
+
+/* ========= VIDEO CARD ========= */
+.video-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:18px;
+  box-shadow:var(--shadow);
+  overflow:hidden;
+}
+
+.video-topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 14px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,#ffffff, #fbfdff);
+}
+.video-topbar .left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-weight:800;
+}
+.pill{
+  padding:6px 10px;
+  border-radius:999px;
+  background:#eff6ff;
+  color:#1d4ed8;
+  font-size:.8rem;
+  font-weight:900;
+}
+.pill.live{ background:#ecfdf5;color:#047857; }
+.pill.off{ background:#fff1f2;color:#be123c; }
+
+.video-wrapper{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  background:black;
+}
+video{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+
+/* Photo preview */
+#photoPreview{
+  display:none;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  background:black;
+}
+
+/* Overlay preview layer (mini preview layer on card) */
+.preview-overlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+.preview-overlay img{
+  position:absolute;
+  opacity:0;
+  transform:scale(1.02);
+  transition:opacity .18s ease, transform .18s ease;
+  filter: drop-shadow(0 12px 22px rgba(0,0,0,.25));
+}
+.preview-overlay img.show{
+  opacity:1;
+  transform:scale(1);
+}
+/* ✅ Match server output: do NOT zoom the frame in preview */
+.preview-frame{
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+
+/* ✅ Logo size responsive on phones, closer to final render */
+.preview-logo{
+  width:clamp(90px, 22vw, 150px);
+  height:auto;
+}
+
+/* Logo positions */
+.pos-top-left{ top:16px; left:16px; }
+.pos-top-center{ top:16px; left:50%; transform:translateX(-50%); }
+.pos-top-right{ top:16px; right:16px; }
+.pos-bottom-left{ bottom:16px; left:16px; }
+.pos-bottom-center{ bottom:16px; left:50%; transform:translateX(-50%); }
+.pos-bottom-right{ bottom:16px; right:16px; }
+.pos-center{ top:50%; left:50%; transform:translate(-50%,-50%); }
+
+/* Hide overlay on preparation (request) */
+.hide-overlay .preview-overlay{ display:none !important; }
+
+/* ========= SHOP STRIPS ========= */
+.section{
+  margin-top:14px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:18px;
+  box-shadow:var(--shadow);
+  padding:12px 14px 14px;
+}
+
+.section-head{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+.section-title{
+  font-weight:900;
+  letter-spacing:.2px;
+}
+.section-hint{
+  font-size:.82rem;
+  color:var(--muted);
+}
+
+.strip{
+  display:flex;
+  gap:10px;
+  overflow:auto;
+  padding-bottom:4px;
+  scroll-snap-type:x mandatory;
+}
+.strip::-webkit-scrollbar{height:10px}
+.strip::-webkit-scrollbar-thumb{background:#dbeafe;border-radius:999px}
+.strip::-webkit-scrollbar-track{background:transparent}
+
+.item{
+  min-width:150px;
+  max-width:150px;
+  scroll-snap-align:start;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:linear-gradient(180deg,#ffffff,#fbfdff);
+  padding:10px;
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  box-shadow:0 10px 18px rgba(15,23,42,.06);
+  position:relative;
+}
+.item:hover{ transform:translateY(-2px); }
+.item.selected{
+  border-color:rgba(59,130,246,.65);
+  box-shadow:0 14px 28px rgba(59,130,246,.16);
+}
+.thumb{
+  width:100%;
+  height:84px;
+  border-radius:12px;
+  background:#f1f5f9;
+  overflow:hidden;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:1px solid rgba(0,0,0,.04);
+}
+.thumb img{
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+}
+.name{
+  margin-top:8px;
+  font-weight:800;
+  font-size:.84rem;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.price{
+  margin-top:4px;
+  font-size:.82rem;
+  color:var(--muted);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+}
+.tag{
+  font-size:.72rem;
+  padding:4px 8px;
+  border-radius:999px;
+  font-weight:900;
+}
+.tag.free{ background:#ecfdf5; color:#047857; }
+.tag.paid{ background:#fff1f2; color:#be123c; }
+
+.clearbtn{
+  border:none;
+  background:transparent;
+  color:var(--accent);
+  font-weight:900;
+  cursor:pointer;
+  padding:6px 8px;
+  border-radius:10px;
+}
+.clearbtn:hover{ background:#eff6ff; }
+
+/* ========= BUTTONS / FOOTERS ========= */
+.controls{
+  display:flex;
+  gap:12px;
+  margin-top:14px;
+}
+button{
+  border:none;
+  border-radius:14px;
+  cursor:pointer;
+  font-weight:900;
+}
+.btn-big{
+  width:100%;
+  padding:16px 14px;
+  font-size:1.05rem;
+  color:white;
+  box-shadow:0 18px 40px rgba(15,23,42,.10);
+}
+.primary{ background:linear-gradient(180deg,var(--accent),#2563eb); }
+.success{ background:linear-gradient(180deg,var(--accent2),#16a34a); }
+.gray{ background:linear-gradient(180deg,#94a3b8,#64748b); }
+.danger{ background:linear-gradient(180deg,#fb7185,#ef4444); }
+button:disabled{ opacity:.55; cursor:not-allowed; box-shadow:none; }
+
+.status{
+  text-align:center;
+  font-size:.9rem;
+  color:var(--muted);
+  margin-top:10px;
+  min-height:1.2em;
+}
+
+/* ========= MODALS (blur behind) ========= */
+.capture-modal{
+  position:fixed;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  background:rgba(15,23,42,.42);
+  backdrop-filter: blur(12px);
+  z-index:9999;
+}
+.capture-modal.show{ display:flex; }
+
+.capture-box{
+  width:92%;
+  max-width:390px;
+  background:rgba(255,255,255,.92);
+  border:1px solid rgba(255,255,255,.55);
+  border-radius:20px;
+  box-shadow:0 30px 80px rgba(15,23,42,.22);
+  padding:20px 18px 16px;
+  text-align:center;
+}
+.modal-title{
+  font-weight:900;
+  margin:2px 0 8px;
+}
+.countdown-num{
+  font-size:5rem;
+  font-weight:900;
+  margin:10px 0 6px;
+  color:#0f172a;
+}
+.processing{
+  display:none;
+  margin-top:12px;
+}
+.processing.show{ display:block; }
+
+.progress{
+  width:100%;
+  height:12px;
+  border-radius:999px;
+  background:#e5e7eb;
+  overflow:hidden;
+  margin:10px 0 8px;
+}
+.progress-bar{
+  height:100%;
+  width:0%;
+  background:linear-gradient(90deg,#3b82f6,#22c55e);
+  animation:indeterminate 2.1s linear infinite;
+}
+@keyframes indeterminate{
+  0%{ transform:translateX(-100%); width:45%; }
+  50%{ transform:translateX(30%); width:60%; }
+  100%{ transform:translateX(120%); width:45%; }
+}
+.meta{
+  display:flex;
+  justify-content:space-between;
+  font-size:.82rem;
+  color:var(--muted);
+}
+
+.modal-actions{
+  display:flex;
+  gap:10px;
+  margin-top:14px;
+}
+.modal-actions button{
+  box-shadow:none;
+  padding:12px;
+  font-size:.95rem;
+  color:white;
+  border-radius:14px;
+  flex:1;
+}
+.modal-actions .gray{ color:white; }
+
+.blur-target.blurred{
+  filter: blur(10px);
+  transform: scale(1.01);
+  transition: filter .18s ease, transform .18s ease;
+}
+
+/* ========= LIVE MODAL (full camera) ========= */
+.live-modal .capture-box{
+  max-width:980px;
+  width:94%;
+  padding:14px;
+  text-align:left;
+  background:rgba(255,255,255,.95);
+}
+.live-grid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:12px;
+}
+.live-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.live-top .title{
+  font-weight:900;
+}
+.live-actions{
+  display:flex;
+  gap:10px;
+}
+.live-actions button{
+  color:white;
+  padding:10px 12px;
+  border-radius:14px;
+  font-size:.95rem;
+}
+.live-video-wrap{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  background:#000;
+  border-radius:16px;
+  overflow:hidden;
+  border:1px solid rgba(0,0,0,.08);
+}
+#liveVideo{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
+}
+#liveOverlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+}
+#liveOverlay img{
+  position:absolute;
+  opacity:0;
+  transform:scale(1.02);
+  transition:opacity .18s ease, transform .18s ease;
+  filter: drop-shadow(0 12px 22px rgba(0,0,0,.25));
+}
+#liveOverlay img.show{
+  opacity:1; transform:scale(1);
+}
+#liveFrame{ inset:0; width:100%; height:100%; object-fit:cover; }
+#liveLogo{ width:160px; height:auto; }
+
+/* Mobile */
+@media(max-width:720px){
+  .controls{ flex-direction:column; }
+  .modal-actions{ flex-direction:column; }
+  .live-actions{ flex-direction:column; width:100%; }
+  .live-actions button{ width:100%; }
+  .preview-logo, #liveLogo{ width:130px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- OFFLINE OVERLAY -->
+<div id="offlineOverlay" class="tc-offline-overlay" aria-hidden="true">
+  <div class="tc-offline-card">
+    <h2 class="tc-offline-title">
+      <span style="font-size:24px;">📷</span>
+      <span id="offlineTitle">カメラがオフラインです</span>
+    </h2>
+    <p class="tc-offline-sub" id="offlineMsg">
+      現在このカメラは利用できません。しばらくしてから再度お試しください。
+    </p>
+    <div class="tc-offline-badge">
+      🔴 <span id="offlineBadge">OFFLINE</span>
+    </div>
+
+    <div class="tc-offline-actions">
+      <button class="tc-btn tc-btn-primary" id="offlineRetryBtn" type="button">再試行</button>
+      <button class="tc-btn tc-btn-ghost" id="offlineCloseBtn" type="button">閉じる</button>
+    </div>
+
+    <div class="tc-muted" id="offlineHint">
+     
+    </div>
+  </div>
+</div>
+
+<!-- START HERO -->
+<section class="start-hero" id="startHero">
+  <div class="start-card">
+    <h2 class="start-title">AutoCaster - View</h2>
+    <p class="start-sub">写真・動画を撮影して、決済後にダウンロードできます。</p>
+    <div class="hero-badge">
+      <span class="hero-dot"></span>
+      <span id="heroCameraText">Camera: —</span>
+    </div>
+    <button class="hero-btn" id="btnUseService">サービス利用</button>
+    <p class="hero-note" id="heroNote">URLに cameraId が必要です（例：?cameraId=xxxx）</p>
+  </div>
+</section>
+
+<!-- APP -->
+<div class="container" id="appContainer">
+
+  <div class="header">
+    <div class="brand">
+      <div class="logo-dot"></div>
+      <div>
+        <h1>AutoCaster - View</h1>
+        <div class="sub" id="subText">サービス利用 → 種類選択 → 撮影 → プレビュー → ダウンロード</div>
+      </div>
+    </div>
+    <div class="badge" id="badge">Camera: —</div>
+  </div>
+
+  <div class="titlebar">
+    <div>
+      <h2 class="page-title" id="pageTitle">撮影準備</h2>
+      <div class="page-hint" id="pageHint">フレーム / ロゴを選んで「開始」へ</div>
+    </div>
+    <div class="pill" id="overlayPill">Overlay: None</div>
+  </div>
+
+  <!-- BLUR TARGET -->
+  <div id="blurTarget" class="blur-target hide-overlay">
+    <!-- VIDEO CARD -->
+    <div class="video-card">
+      <div class="video-topbar">
+        <div class="left">
+          <span class="pill off" id="livePill">OFF</span>
+          <span id="cardTitle">準備プレビュー</span>
+        </div>
+        <span class="pill" id="modePill">モード未選択</span>
+      </div>
+
+      <div class="video-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <img id="photoPreview" alt="photo preview" />
+
+        <!-- Mini overlay preview (hidden on 撮影準備, shown on 撮影プレビュー) -->
+        <div class="preview-overlay" id="previewOverlay">
+          <img id="framePreview" class="preview-frame" alt="frame preview"/>
+          <img id="logoPreview" class="preview-logo pos-top-left" alt="logo preview"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- FRAMES -->
+    <div class="section" id="frameSection">
+      <div class="section-head">
+        <div>
+          <div class="section-title">フレーム</div>
+          <div class="section-hint">タップして選択（プレビューは「撮影プレビュー」で表示）</div>
+        </div>
+        <button class="clearbtn" id="clearFrameBtn" type="button">クリア</button>
+      </div>
+      <div class="strip" id="frames"></div>
+    </div>
+
+    <!-- LOGOS -->
+    <div class="section" id="logoSection">
+      <div class="section-head">
+        <div>
+          <div class="section-title">ロゴ</div>
+          <div class="section-hint">タップして選択（プレビューは「撮影プレビュー」で表示）</div>
+        </div>
+        <button class="clearbtn" id="clearLogoBtn" type="button">クリア</button>
+      </div>
+      <div class="strip" id="logos"></div>
+    </div>
+
+    <!-- PREP BIG BUTTON -->
+    <div class="controls" id="prepControls">
+      <button id="btnPrepStart" class="btn-big primary">開始</button>
+    </div>
+
+    <!-- PREVIEW FOOTER -->
+    <div class="controls" id="previewControls" style="display:none">
+      <button id="btnDownload" class="btn-big success">ダウンロード</button>
+      <button id="btnBackToPrep" class="btn-big gray">戻る</button>
+    </div>
+
+    <div class="status" id="status">待機中…</div>
+  </div>
+</div>
+
+<!-- SELECT MODAL (Photo/Video) -->
+<div id="startModal" class="capture-modal" aria-hidden="true">
+  <div class="capture-box">
+    <div class="modal-title" id="startTitle">撮影方法を選択</div>
+
+    <div id="startStep1" class="modal-actions" style="margin-top:14px;">
+      <button id="btnStartPhoto" class="success" type="button">📸 写真 (¥100)</button>
+      <button id="btnStartVideo" class="primary" type="button">🎥 動画</button>
+    </div>
+
+    <div id="startStep2" style="display:none; margin-top:14px;">
+      <div class="section-hint" style="margin-bottom:10px;">動画の長さを選択</div>
+      <div class="modal-actions">
+        <button id="btnDur3" class="primary" type="button">3秒 (¥300)</button>
+        <button id="btnDur15" class="primary" type="button">15秒 (¥500)</button>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:14px;">
+      <button id="btnStartClose" class="gray" type="button">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- LIVE MODAL -->
+<div id="liveModal" class="capture-modal live-modal" aria-hidden="true">
+  <div class="capture-box">
+    <div class="live-grid">
+      <div class="live-top">
+        <div class="title">ライブ撮影</div>
+        <div class="live-actions">
+          <button id="btnLiveCapture" class="success" type="button">capture</button>
+          <button id="btnLiveClose" class="gray" type="button">閉じる</button>
+        </div>
+      </div>
+
+      <div class="live-video-wrap">
+        <video id="liveVideo" autoplay muted playsinline></video>
+
+        <!-- Live overlay preview (optional visible) -->
+        <div id="liveOverlay">
+          <img id="liveFrame" alt="live frame"/>
+          <img id="liveLogo" class="pos-top-left" alt="live logo"/>
+        </div>
+      </div>
+
+      <div class="status" id="liveStatus">準備中…</div>
+    </div>
+  </div>
+</div>
+
+<!-- CAPTURE MODAL -->
+<div id="captureModal" class="capture-modal" aria-hidden="true">
+  <div class="capture-box">
+    <div class="modal-title" id="captureTitle">撮影中…</div>
+    <div class="countdown-num" id="countdownNum">5</div>
+
+    <div class="processing" id="processingBox">
+      <div style="font-weight:900;margin-top:4px;" id="processingText">処理中…</div>
+      <div class="progress"><div class="progress-bar"></div></div>
+      <div class="meta">
+        <span id="procHint">目安: ~10s</span>
+        <span id="procTick">0s</span>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button id="btn-modal-cancel" class="danger" type="button">キャンセル</button>
+      <button id="btn-modal-hide" class="gray" type="button" style="display:none;">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= CONFIG ================= */
+const API_BASE = location.hostname==="localhost"
+  ? "window.location.origin"
+  : `http://${location.hostname}:4450`;
+
+/* ================= PARAMS ================= */
+const params = new URLSearchParams(location.search);
+const cameraId = params.get("cameraId");
+
+/* ================= STATE ================= */
+let hls=null;
+let liveHls=null;
+let sessionId=null;
+
+let overlays=[];
+let selected = { frame:null, logo:null };
+
+let cancelCaptureFlag = false;
+
+// capture settings
+let captureType = "video";  // "photo" | "video"
+let durationSec = 3;        // 3 | 15 (video only)
+
+/* ================= ELEMENTS ================= */
+const startHero = document.getElementById("startHero");
+const btnUseService = document.getElementById("btnUseService");
+const heroCameraText = document.getElementById("heroCameraText");
+const heroNote = document.getElementById("heroNote");
+
+const appContainer = document.getElementById("appContainer");
+
+const badge=document.getElementById("badge");
+const subText=document.getElementById("subText");
+const pageTitle=document.getElementById("pageTitle");
+const pageHint=document.getElementById("pageHint");
+const cardTitle=document.getElementById("cardTitle");
+const modePill=document.getElementById("modePill");
+
+const video=document.getElementById("video");
+const photoPreview=document.getElementById("photoPreview");
+
+const framesEl=document.getElementById("frames");
+const logosEl=document.getElementById("logos");
+const statusEl=document.getElementById("status");
+
+const overlayPill=document.getElementById("overlayPill");
+const livePill=document.getElementById("livePill");
+
+const framePreview=document.getElementById("framePreview");
+const logoPreview=document.getElementById("logoPreview");
+
+const clearFrameBtn=document.getElementById("clearFrameBtn");
+const clearLogoBtn=document.getElementById("clearLogoBtn");
+
+const blurTarget=document.getElementById("blurTarget");
+
+/* ✅ overlay selection sections */
+const frameSection = document.getElementById("frameSection");
+const logoSection  = document.getElementById("logoSection");
+
+const prepControls=document.getElementById("prepControls");
+const previewControls=document.getElementById("previewControls");
+const btnPrepStart=document.getElementById("btnPrepStart");
+const btnDownload=document.getElementById("btnDownload");
+const btnBackToPrep=document.getElementById("btnBackToPrep");
+
+// modals
+const startModal = document.getElementById("startModal");
+const startTitle = document.getElementById("startTitle");
+const startStep1 = document.getElementById("startStep1");
+const startStep2 = document.getElementById("startStep2");
+const btnStartPhoto = document.getElementById("btnStartPhoto");
+const btnStartVideo = document.getElementById("btnStartVideo");
+const btnDur3 = document.getElementById("btnDur3");
+const btnDur15 = document.getElementById("btnDur15");
+const btnStartClose = document.getElementById("btnStartClose");
+
+const liveModal = document.getElementById("liveModal");
+const liveVideo = document.getElementById("liveVideo");
+const liveStatus = document.getElementById("liveStatus");
+const btnLiveCapture = document.getElementById("btnLiveCapture");
+const btnLiveClose = document.getElementById("btnLiveClose");
+
+// live overlay elements
+const liveFrame = document.getElementById("liveFrame");
+const liveLogo = document.getElementById("liveLogo");
+const liveOverlay = document.getElementById("liveOverlay");
+
+const captureModal=document.getElementById("captureModal");
+const captureTitle=document.getElementById("captureTitle");
+const countdownNum=document.getElementById("countdownNum");
+const processingBox=document.getElementById("processingBox");
+const processingText=document.getElementById("processingText");
+const procHint=document.getElementById("procHint");
+const procTick=document.getElementById("procTick");
+const btnModalCancel=document.getElementById("btn-modal-cancel");
+const btnModalHide=document.getElementById("btn-modal-hide");
+
+/* ================= OFFLINE UI HELPERS ================= */
+const offlineOverlay = document.getElementById("offlineOverlay");
+const offlineTitle = document.getElementById("offlineTitle");
+const offlineMsg = document.getElementById("offlineMsg");
+const offlineRetryBtn = document.getElementById("offlineRetryBtn");
+const offlineCloseBtn = document.getElementById("offlineCloseBtn");
+
+function showOfflineOverlay(message){
+  offlineTitle.textContent = "カメラがオフラインです";
+  offlineMsg.textContent = message || "現在このカメラは利用できません。しばらくしてから再度お試しください。";
+  offlineOverlay.style.display = "flex";
+  offlineOverlay.setAttribute("aria-hidden","false");
+  document.body.classList.add("tc-blocked");
+}
+function hideOfflineOverlay(){
+  offlineOverlay.style.display = "none";
+  offlineOverlay.setAttribute("aria-hidden","true");
+  document.body.classList.remove("tc-blocked");
+}
+
+offlineRetryBtn.onclick = ()=> location.reload();
+offlineCloseBtn.onclick = ()=>{
+  if(history.length > 1) history.back();
+  else location.href = "/";
+};
+
+/**
+ * Guard camera before allowing the flow.
+ * Uses /public/overlays because it already calls resolveCameraOwner()
+ * - If camera is Offline -> server returns error -> we show overlay.
+ */
+async function guardCameraOrBlock(){
+  if(!cameraId) return false; // handled elsewhere
+  try{
+    // We call fetch directly here so we can read the error message cleanly.
+    const r = await fetch(`${API_BASE}/public/overlays?cameraId=${encodeURIComponent(cameraId)}`, { cache:"no-store" });
+    const ct = r.headers.get("content-type") || "";
+    const j = ct.includes("application/json") ? await r.json() : {};
+
+    if(!r.ok || j.ok === false){
+      const msg = (j && j.error) ? String(j.error) : "Camera not available";
+      showOfflineOverlay(msg);
+      return true;
+    }
+    // if ok, do NOT set overlays here (we load later)
+    return false;
+  }catch(e){
+    showOfflineOverlay("ネットワークエラーです。接続を確認して再試行してください。");
+    return true;
+  }
+}
+
+/* ================= INIT UI ================= */
+heroCameraText.textContent = `Camera: ${cameraId || "—"}`;
+heroNote.textContent = cameraId ? "「サービス利用」を押して開始してください。" : "URLに cameraId が必要です（例：?cameraId=xxxx）";
+badge.textContent = `Camera: ${cameraId || "—"}`;
+
+/* ================= HELPERS ================= */
+const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+const api = async (p,o={})=>{
+  const r=await fetch(API_BASE+p,o);
+  const ct = r.headers.get("content-type") || "";
+  const j = ct.includes("application/json") ? await r.json() : {};
+  if(!r.ok || j.ok===false) throw new Error(j.error||`Request failed (${r.status})`);
+  return j;
+};
+
+function showApp(){
+  startHero.style.display = "none";
+  appContainer.style.display = "block";
+}
+
+/* show/hide overlay selections */
+function setOverlaySelectionVisible(visible){
+  frameSection.style.display = visible ? "block" : "none";
+  logoSection.style.display  = visible ? "block" : "none";
+}
+
+function resetVideo(vEl){
+  try{
+    const h = (vEl === liveVideo) ? liveHls : hls;
+    if(h){ h.destroy(); }
+  }catch{}
+  if(vEl === liveVideo) liveHls = null;
+  else hls = null;
+
+  try{ vEl.pause(); }catch{}
+  vEl.removeAttribute("src");
+  vEl.load();
+}
+
+const showVideoEl=()=>{
+  photoPreview.style.display="none";
+  video.style.display="block";
+};
+
+const showPhotoEl=(url)=>{
+  resetVideo(video);
+  video.style.display="none";
+  photoPreview.style.display="block";
+  photoPreview.src = url;
+};
+
+function showMiniBlank(){
+  resetVideo(video);
+  showVideoEl();
+}
+
+function setOverlayVisibility(showIt){
+  document.getElementById("previewOverlay").style.display = showIt ? "block" : "none";
+  liveOverlay.style.display = "block";
+}
+
+function setPreparationMode(){
+  pageTitle.textContent = "撮影準備";
+  pageHint.textContent = "フレーム / ロゴを選んで「開始」へ";
+  cardTitle.textContent = "準備プレビュー";
+  prepControls.style.display = "flex";
+  previewControls.style.display = "none";
+
+  blurTarget.classList.add("hide-overlay");
+  setOverlayVisibility(false);
+
+  setOverlaySelectionVisible(true);
+
+  statusEl.textContent = cameraId ? "開始ボタンを押してください。" : "cameraId がありません。URLを確認してください。";
+}
+
+function setPreviewMode(){
+  pageTitle.textContent = "撮影プレビュー";
+  pageHint.textContent = "内容を確認して、ダウンロードへ進んでください。";
+  cardTitle.textContent = "撮影プレビュー";
+  prepControls.style.display = "none";
+  previewControls.style.display = "flex";
+
+  blurTarget.classList.remove("hide-overlay");
+  setOverlayVisibility(true);
+
+  setOverlaySelectionVisible(false);
+}
+
+function logoPosClass(pos){
+  switch(pos){
+    case "top-left": return "pos-top-left";
+    case "top-center": return "pos-top-center";
+    case "top-right": return "pos-top-right";
+    case "bottom-left": return "pos-bottom-left";
+    case "bottom-center": return "pos-bottom-center";
+    case "bottom-right": return "pos-bottom-right";
+    case "center": return "pos-center";
+    default: return "pos-top-left";
+  }
+}
+
+function applyMiniOverlayPreview(){
+  if(selected.frame?.previewUrl){
+    framePreview.src = selected.frame.previewUrl;
+    requestAnimationFrame(()=> framePreview.classList.add("show"));
+  }else{
+    framePreview.classList.remove("show");
+    framePreview.removeAttribute("src");
+  }
+
+  if(selected.logo?.previewUrl){
+    logoPreview.src = selected.logo.previewUrl;
+    logoPreview.className = "preview-logo show " + logoPosClass(selected.logo.position || "top-left");
+  }else{
+    logoPreview.classList.remove("show");
+    logoPreview.removeAttribute("src");
+  }
+
+  const f = selected.frame ? "Frame" : "";
+  const l = selected.logo ? "Logo" : "";
+  const t = (f && l) ? "Frame + Logo" : (f || l || "None");
+  overlayPill.textContent = `Overlay: ${t}`;
+}
+
+function applyLiveOverlayPreview(){
+  if(selected.frame?.previewUrl){
+    liveFrame.src = selected.frame.previewUrl;
+    requestAnimationFrame(()=> liveFrame.classList.add("show"));
+  }else{
+    liveFrame.classList.remove("show");
+    liveFrame.removeAttribute("src");
+  }
+
+  if(selected.logo?.previewUrl){
+    liveLogo.src = selected.logo.previewUrl;
+    liveLogo.className = "show " + logoPosClass(selected.logo.position || "top-left");
+  }else{
+    liveLogo.classList.remove("show");
+    liveLogo.removeAttribute("src");
+  }
+}
+
+function setModePill(){
+  const priceText =
+    captureType === "photo" ? "¥100" : (durationSec===15 ? "¥500" : "¥300");
+  modePill.textContent = captureType === "photo" ? `写真 (${priceText})` : `動画 ${durationSec}秒 (${priceText})`;
+}
+
+/* ================= MODAL UX ================= */
+function showModal(el){
+  el.classList.add("show");
+  el.setAttribute("aria-hidden","false");
+  blurTarget.classList.add("blurred");
+}
+function hideModal(el){
+  el.classList.remove("show");
+  el.setAttribute("aria-hidden","true");
+  blurTarget.classList.remove("blurred");
+}
+
+/* ================= BEEP ================= */
+function beep(freq=880, dur=120){
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type="sine";
+    o.frequency.value=freq;
+    o.connect(g);
+    g.connect(ctx.destination);
+    g.gain.value=0.08;
+    o.start();
+    setTimeout(()=>{ o.stop(); ctx.close(); }, dur);
+  }catch{}
+}
+
+/* ================= OVERLAYS SHOP ================= */
+async function loadOverlays(){
+  overlays = await api(`/public/overlays?cameraId=${encodeURIComponent(cameraId)}`);
+  renderStrips();
+}
+
+function renderStrips(){
+  framesEl.innerHTML=""; logosEl.innerHTML="";
+  overlays.forEach(o=>{
+    const card = document.createElement("div");
+    card.className = "item";
+    card.innerHTML = `
+      <div class="thumb"><img src="${o.previewUrl}" alt="${o.fileName}" loading="lazy"/></div>
+      <div class="name">${o.fileName}</div>
+      <div class="price">
+        <span>${o.isPaid ? "¥" + o.price : "FREE"}</span>
+        <span class="tag ${o.isPaid ? "paid":"free"}">${o.isPaid ? "PAID" : "FREE"}</span>
+      </div>
+    `;
+    card.onclick = ()=> selectOverlay(o, card);
+    if(o.type==="frame") framesEl.appendChild(card);
+    if(o.type==="logo") logosEl.appendChild(card);
+  });
+  syncSelectedUI();
+}
+
+function syncSelectedUI(){
+  [...framesEl.children].forEach(c=>c.classList.remove("selected"));
+  [...logosEl.children].forEach(c=>c.classList.remove("selected"));
+
+  if(selected.frame){
+    [...framesEl.children].forEach((c)=>{
+      const name = c.querySelector(".name")?.textContent;
+      if(name === selected.frame.fileName) c.classList.add("selected");
+    });
+  }
+  if(selected.logo){
+    [...logosEl.children].forEach((c)=>{
+      const name = c.querySelector(".name")?.textContent;
+      if(name === selected.logo.fileName) c.classList.add("selected");
+    });
+  }
+}
+
+function selectOverlay(item, card){
+  const type = item.type;
+  selected[type] = (selected[type]?.id === item.id) ? null : item;
+
+  const list = (type==="frame" ? framesEl.children : logosEl.children);
+  [...list].forEach(c=>c.classList.remove("selected"));
+  if(selected[type]) card.classList.add("selected");
+
+  applyMiniOverlayPreview();
+  applyLiveOverlayPreview();
+}
+
+clearFrameBtn.onclick = ()=>{
+  selected.frame = null;
+  syncSelectedUI();
+  applyMiniOverlayPreview();
+  applyLiveOverlayPreview();
+};
+clearLogoBtn.onclick = ()=>{
+  selected.logo = null;
+  syncSelectedUI();
+  applyMiniOverlayPreview();
+  applyLiveOverlayPreview();
+};
+
+/* ================= START FLOW ================= */
+btnUseService.onclick = async ()=>{
+  if(!cameraId){
+    alert("cameraId がありません。URLに ?cameraId=xxxx を付けてください。");
+    return;
+  }
+
+  // ✅ Guard camera OFFLINE: blur + card, stop flow
+  const blocked = await guardCameraOrBlock();
+  if(blocked) return;
+
+  hideOfflineOverlay();
+
+  showApp();
+  setPreparationMode();
+  setModePill();
+
+  try{
+    statusEl.textContent = "フレーム/ロゴ読み込み中…";
+    await loadOverlays();
+    statusEl.textContent = "準備完了。開始ボタンを押してください。";
+  }catch(e){
+    // if server says offline here too, show overlay
+    if(String(e.message).toLowerCase().includes("offline")){
+      showOfflineOverlay(e.message);
+      return;
+    }
+    statusEl.textContent = e.message;
+  }
+};
+
+btnPrepStart.onclick = ()=>{
+  startStep1.style.display="flex";
+  startStep2.style.display="none";
+  startTitle.textContent = "撮影方法を選択";
+  showModal(startModal);
+};
+
+btnStartClose.onclick = ()=> hideModal(startModal);
+
+btnStartPhoto.onclick = async ()=>{
+  captureType = "photo";
+  durationSec = 0;
+  setModePill();
+  hideModal(startModal);
+  await openLiveModal();
+};
+
+btnStartVideo.onclick = ()=>{
+  captureType = "video";
+  startStep1.style.display="none";
+  startStep2.style.display="block";
+  startTitle.textContent = "動画の長さを選択";
+};
+
+btnDur3.onclick = async ()=>{
+  captureType = "video";
+  durationSec = 3;
+  setModePill();
+  hideModal(startModal);
+  await openLiveModal();
+};
+
+btnDur15.onclick = async ()=>{
+  captureType = "video";
+  durationSec = 15;
+  setModePill();
+  hideModal(startModal);
+  await openLiveModal();
+};
+
+/* ================= LIVE MODAL ================= */
+
+// ✅ 4 minutes UI timeout
+const LIVE_UI_LIMIT_MS = 4 * 60 * 1000;
+let liveUiTimer = null;
+
+function clearLiveUiTimeout(){
+  if(liveUiTimer){
+    clearTimeout(liveUiTimer);
+    liveUiTimer = null;
+  }
+}
+
+// ✅ best-effort: stop server live
+async function stopServerLive(reason="user_close"){
+  try{
+    if(!cameraId) return;
+    await fetch(`${API_BASE}/public/stop-stream`, {
+      method: "POST",
+      headers: { "Content-Type":"application/json" },
+      body: JSON.stringify({
+        cameraId,
+        sessionId, // optional (your server can ignore)
+        reason
+      })
+    });
+  }catch(e){
+    console.warn("stopServerLive failed:", e?.message || e);
+  }
+}
+
+function startLiveUiTimeout(){
+  clearLiveUiTimeout();
+  liveUiTimer = setTimeout(async ()=>{
+    alert("ライブの制限時間（4分）を超えました。\nもう一度撮影する場合は、最初の画面から開始してください。");
+
+    // ✅ stop server stream
+    await stopServerLive("ui_timeout");
+
+    // ✅ close UI + force restart from prep
+    closeLiveModal({ stopServer: false });
+
+    setPreparationMode();
+    showMiniBlank();
+    applyMiniOverlayPreview();
+
+    statusEl.textContent = "タイムアウトしました。もう一度「開始」からやり直してください。";
+  }, LIVE_UI_LIMIT_MS);
+}
+
+// ✅ close button → must stop server live
+btnLiveClose.onclick = async ()=>{
+  clearLiveUiTimeout();
+  await stopServerLive("btn_close");
+
+  closeLiveModal({ stopServer: false });
+
+  setPreparationMode();
+  showMiniBlank();
+  applyMiniOverlayPreview();
+  statusEl.textContent = "ライブを終了しました。もう一度「開始」から撮影してください。";
+};
+
+// ✅ close function (UI cleanup only by default)
+function closeLiveModal({ stopServer = false } = {}){
+  try{ resetVideo(liveVideo); }catch{}
+  hideModal(liveModal);
+
+  liveStatus.textContent = "準備中…";
+  livePill.classList.remove("live");
+  livePill.classList.add("off");
+  livePill.textContent = "OFF";
+
+  clearLiveUiTimeout();
+
+  // optional: stop server if you call closeLiveModal({stopServer:true})
+  if(stopServer){
+    stopServerLive("closeLiveModal");
+  }
+}
+
+async function openLiveModal(){
+  try{
+    // ✅ Guard again (in case camera became Offline after user opened UI)
+    const blocked = await guardCameraOrBlock();
+    if(blocked){
+      hideModal(liveModal);
+      return;
+    }
+
+    clearLiveUiTimeout();
+
+    liveStatus.textContent = "セッション作成中…";
+    btnLiveCapture.disabled = true;
+    showModal(liveModal);
+
+    const s = await api(`/public/session?cameraId=${encodeURIComponent(cameraId)}`, { method:"POST" });
+    sessionId = s.sessionId;
+
+    liveStatus.textContent = "ライブ開始中…";
+    const h = await api(`/public/start-stream?cameraId=${encodeURIComponent(cameraId)}&sessionId=${encodeURIComponent(sessionId)}`);
+
+    resetVideo(liveVideo);
+
+    if(window.Hls && Hls.isSupported()){
+      liveHls = new Hls({ lowLatencyMode:true });
+      liveHls.loadSource(API_BASE + h.hlsPath);
+      liveHls.attachMedia(liveVideo);
+    }else{
+      liveVideo.src = API_BASE + h.hlsPath;
+    }
+
+    livePill.classList.remove("off");
+    livePill.classList.add("live");
+    livePill.textContent = "LIVE";
+
+    applyLiveOverlayPreview();
+
+    // ✅ start 4-minute timeout only after live started OK
+    startLiveUiTimeout();
+
+    btnLiveCapture.disabled = false;
+    liveStatus.textContent = "準備完了。「capture」を押してください。";
+
+  }catch(e){
+    clearLiveUiTimeout();
+
+    if(String(e.message).toLowerCase().includes("offline")){
+      showOfflineOverlay(e.message);
+      hideModal(liveModal);
+      return;
+    }
+
+    liveStatus.textContent = e.message;
+    btnLiveCapture.disabled = false;
+  }
+}
+
+/* ✅ stop server live also when user closes tab / refresh (best effort) */
+window.addEventListener("beforeunload", () => {
+  try{
+    if(cameraId && sessionId){
+      navigator.sendBeacon(
+        `${API_BASE}/public/stop-stream`,
+        new Blob([JSON.stringify({ cameraId, sessionId, reason:"beforeunload" })], { type:"application/json" })
+      );
+    }
+  }catch{}
+});
+
+/* ================= CAPTURE ================= */
+btnLiveCapture.onclick = async ()=>{
+  try{
+    if(!sessionId) throw new Error("sessionId がありません。もう一度開始してください。");
+
+    cancelCaptureFlag = false;
+    btnLiveCapture.disabled = true;
+
+    processingBox.classList.remove("show");
+    countdownNum.style.display = "block";
+    btnModalCancel.style.display = "block";
+    btnModalHide.style.display = "none";
+    procTick.textContent = "0s";
+
+    const est = captureType === "photo" ? 6 : (durationSec===15 ? 16 : 10);
+    procHint.textContent = `目安: ~${est}s`;
+    processingText.textContent =
+      captureType === "photo" ? "写真を処理中…" : "動画を処理中…";
+
+    captureTitle.textContent =
+      captureType === "photo"
+        ? "写真撮影中…"
+        : `動画撮影中…（${durationSec}秒）`;
+
+    showModal(captureModal);
+
+    // ✅ Countdown always from 5
+const countFrom = 5;
+
+for(let i=countFrom;i>=1;i--){
+  if(cancelCaptureFlag) return;
+
+  countdownNum.textContent = String(i);
+
+  // higher pitch on last second
+  beep(i===1 ? 1100 : 880, 120);
+
+  await sleep(1000);
+}
+
+if(cancelCaptureFlag) return;
+
+
+    countdownNum.style.display = "none";
+    processingBox.classList.add("show");
+
+    let t=0;
+    const tick = setInterval(()=>{ t++; procTick.textContent = `${t}s`; },1000);
+
+    const r = await api(`/public/capture`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        sessionId,
+        captureType,
+        durationSec: (captureType==="video" ? durationSec : 0),
+        frameId: selected.frame?.id || null,
+        logoId: selected.logo?.id || null,
+      })
+    });
+
+    clearInterval(tick);
+    hideModal(captureModal);
+
+    closeLiveModal();
+    await showPreview(r);
+
+  }catch(e){
+    hideModal(captureModal);
+    liveStatus.textContent = e.message;
+  }finally{
+    btnLiveCapture.disabled = false;
+  }
+};
+
+btnModalCancel.onclick = ()=>{
+  cancelCaptureFlag = true;
+  hideModal(captureModal);
+  statusEl.textContent = "キャンセルしました。";
+  btnLiveCapture.disabled = false;
+  cancelCaptureFlag = false;
+};
+btnModalHide.onclick = ()=> hideModal(captureModal);
+
+/* ================= PREVIEW ================= */
+async function showPreview(r){
+  setPreviewMode();
+
+  applyMiniOverlayPreview();
+
+  const type = r.captureType || captureType;
+  resetVideo(video);
+
+  if(type === "photo"){
+    showPhotoEl(r.previewUrl);
+  }else{
+    showVideoEl();
+    video.src = r.previewUrl;
+    video.muted = false;
+    video.controls = false;
+    try{ await video.play(); }catch{}
+  }
+
+  statusEl.textContent = "プレビュー準備完了。ダウンロードへ進んでください。";
+}
+
+/* ================= DOWNLOAD (PAYMENT) ================= */
+btnDownload.onclick = async ()=>{
+  try{
+    if(!sessionId) throw new Error("Missing sessionId");
+
+    const p = await api(`/public/create-payment`,{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        sessionId,
+        frameId: selected.frame?.id || null,
+        logoId: selected.logo?.id || null
+      })
+    });
+
+    if(!p.url) throw new Error("Payment session failed");
+    location.href = p.url;
+  }catch(e){
+    statusEl.textContent = e.message;
+  }
+};
+
+btnBackToPrep.onclick = ()=>{
+  setPreparationMode();
+  showMiniBlank();
+  applyMiniOverlayPreview();
+  statusEl.textContent = "準備画面に戻りました。「開始」を押してください。";
+};
+
+/* ================= FIRST LOAD ================= */
+setPreparationMode();
+showMiniBlank();
+applyMiniOverlayPreview();
+applyLiveOverlayPreview();
+setModePill();
+
+if(cameraId){
+  // keep hero visible; user taps サービス利用
+}else{
+  btnUseService.disabled = true;
+  btnUseService.style.opacity = .6;
+}
+
+setOverlayVisibility(false);
+
+// Optional: if you want to auto-show offline overlay immediately on page open (even before clicking サービス利用),
+// uncomment this:
+// if(cameraId){ guardCameraOrBlock(); }
+
+</script>
+</body>
+</html>

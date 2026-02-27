@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>新規登録 | AutoCaster - View</title>
+  <meta name="description" content="AutoCaster - View クライアント管理者アカウントの新規登録" />
+
+  <style>
+    :root{
+      --bg:#ffffff;
+      --card:#ffffff;
+      --text:#111827;
+      --muted:#6b7280;
+      --line:#e5e7eb;
+      --primary:#2563eb;
+      --primary2:#1d4ed8;
+      --ok:#059669;
+      --danger:#dc2626;
+      --warn:#b45309;
+      --focus: rgba(37, 99, 235, .18);
+      --shadow: 0 18px 50px rgba(17,24,39,.10);
+      --radius: 16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Hiragino Kaku Gothic ProN",
+                   "Hiragino Sans", "Noto Sans JP", "Yu Gothic", Meiryo, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display:grid;
+      place-items:center;
+      padding: 24px;
+    }
+    .wrap{width:100%; max-width: 940px;}
+    .top{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:14px; margin-bottom: 14px;
+    }
+    .brand{display:flex; align-items:center; gap:10px;}
+    .logo{
+      width:34px; height:34px; border-radius:10px;
+      background: linear-gradient(135deg, #2563eb, #22c55e);
+      box-shadow: 0 12px 24px rgba(37,99,235,.18);
+    }
+    .title{font-size: 20px;font-weight: 900;letter-spacing:.2px;margin:0;}
+    .subtitle{margin:2px 0 0;font-size: 12.5px;color: var(--muted);line-height:1.5;}
+    .badge{
+      font-size: 12px;color:#111827;background:#f3f4f6;border:1px solid var(--line);
+      padding: 6px 10px;border-radius: 999px;white-space: nowrap;
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 18px;
+    }
+    @media (max-width: 860px){ .grid{grid-template-columns:1fr} }
+
+    .section{
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #ffffff;
+    }
+    .section h3{
+      margin: 0 0 10px;
+      font-size: 13px;
+      color:#111827;
+      letter-spacing:.2px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .section h3 small{font-weight:700;color:var(--muted);}
+
+    label{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      margin: 10px 0 6px;
+      font-size: 12px;
+      color: var(--muted);
+      gap:10px;
+    }
+    .req{
+      display:inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius:999px;
+      border:1px solid #fee2e2;
+      background:#fff1f2;
+      color:#9f1239;
+      white-space:nowrap;
+    }
+
+    input, select{
+      width:100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 12px;
+      font-size: 14px;
+      background:#fff;
+      color: var(--text);
+      outline:none;
+    }
+    input:focus, select:focus{
+      border-color: rgba(37,99,235,.75);
+      box-shadow: 0 0 0 4px var(--focus);
+    }
+    input[aria-invalid="true"], select[aria-invalid="true"]{
+      border-color: rgba(220,38,38,.65);
+      box-shadow: 0 0 0 4px rgba(220,38,38,.12);
+    }
+
+    .row{display:grid;grid-template-columns: 1fr 1fr;gap: 12px;}
+    @media (max-width: 860px){ .row{grid-template-columns:1fr} }
+
+    .help{margin-top: 8px;font-size: 12px;color: var(--muted);line-height: 1.6;}
+    .errline{margin-top:6px;font-size:12px;color:#7f1d1d;display:none;}
+    .errline.show{display:block;}
+
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      color:#374151;
+      background:#f9fafb;
+      border:1px solid var(--line);
+      padding: 2px 6px;
+      border-radius: 8px;
+      display:inline-block;
+    }
+
+    .pw-wrap{position:relative;}
+    .pw-toggle{
+      position:absolute;
+      right:10px;
+      top:50%;
+      transform:translateY(-50%);
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius:10px;
+      padding:6px 10px;
+      font-size:12px;
+      cursor:pointer;
+      color:#374151;
+    }
+    .pw-meter{
+      margin-top:8px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+      font-size:12px;
+      color:var(--muted);
+    }
+    .bar{
+      height:8px; flex:1;
+      background:#f3f4f6;
+      border:1px solid var(--line);
+      border-radius:999px;
+      overflow:hidden;
+    }
+    .bar > i{display:block;height:100%;width:0%;}
+    .pw-badge{
+      font-weight:900;
+      padding:3px 8px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#f9fafb;
+      color:#374151;
+      white-space:nowrap;
+    }
+
+    .btnbar{padding: 0 18px 18px;}
+    .btn{
+      width:100%;
+      border:none;
+      border-radius: 14px;
+      padding: 13px 14px;
+      font-weight: 900;
+      font-size: 14px;
+      cursor:pointer;
+      background: linear-gradient(135deg, var(--primary), #22c55e);
+      color: white;
+      box-shadow: 0 16px 32px rgba(37,99,235,.18);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+    }
+    .btn:hover{filter:brightness(.98)}
+    .btn:disabled{opacity:.55; cursor:not-allowed; box-shadow:none;}
+
+    .spinner{
+      width:16px;height:16px;border-radius:999px;
+      border:2px solid rgba(255,255,255,.5);
+      border-top-color:#fff;
+      animation: spin .7s linear infinite;
+      display:none;
+    }
+    .btn.loading .spinner{display:inline-block;}
+    @keyframes spin{to{transform:rotate(360deg)}}
+
+    .status{
+      margin-top: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #f9fafb;
+      padding: 12px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      min-height: 44px;
+      white-space:pre-wrap;
+    }
+    .status.ok{border-color: rgba(5,150,105,.35);background: rgba(16,185,129,.08);color: #065f46;}
+    .status.err{border-color: rgba(220,38,38,.35);background: rgba(220,38,38,.07);color: #7f1d1d;}
+
+    .successBox{
+      margin-top:12px;
+      border:1px solid rgba(5,150,105,.25);
+      background: rgba(16,185,129,.06);
+      border-radius: 14px;
+      padding: 12px;
+      display:none;
+    }
+    .successBox.show{display:block;}
+    .kv{
+      display:grid;
+      grid-template-columns: 120px 1fr auto;
+      gap:10px;
+      align-items:center;
+      padding:8px 0;
+      border-top:1px dashed rgba(5,150,105,.22);
+    }
+    .kv:first-child{border-top:none;}
+    .kv b{color:#065f46;font-size:12px;}
+    .copy{
+      border:1px solid rgba(5,150,105,.30);
+      background:#fff;
+      color:#065f46;
+      font-weight:900;
+      border-radius:10px;
+      padding:6px 10px;
+      cursor:pointer;
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .footer{
+      padding: 0 18px 16px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+      border-top: 1px solid var(--line);
+      background: #ffffff;
+    }
+    .footer a{color:var(--primary); text-decoration:none}
+    .footer a:hover{text-decoration:underline}
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1 class="title">新規登録</h1>
+          <div class="subtitle">クライアント（管理者）アカウントを作成します。</div>
+        </div>
+      </div>
+      <div class="badge">Town Capture</div>
+    </div>
+
+    <div class="card">
+      <form id="registerForm" autocomplete="off" novalidate>
+        <div class="grid">
+          <div class="section">
+            <h3>アカウント情報 <small>必須項目あり</small></h3>
+
+            <label for="name">氏名 <span class="req">必須</span></label>
+            <input id="name" name="name" minlength="2" maxlength="80" required placeholder="例）山田 太郎" />
+            <div class="errline" id="err_name"></div>
+
+            <label for="email">メールアドレス <span class="req">必須</span></label>
+            <input id="email" name="email" type="email" maxlength="120" required placeholder="例）taro@example.com" />
+            <div class="errline" id="err_email"></div>
+
+            <div class="row">
+              <div>
+                <label for="password">パスワード <span class="req">必須</span></label>
+                <div class="pw-wrap">
+                  <input id="password" name="password" type="password" minlength="6" required placeholder="6文字以上" />
+                  <button type="button" class="pw-toggle" id="pwToggle">表示</button>
+                </div>
+
+                <div class="pw-meter">
+                  <div class="bar"><i id="pwBar"></i></div>
+                  <span class="pw-badge" id="pwBadge">弱い</span>
+                </div>
+
+                <div class="help">※ 推奨：英大文字 / 小文字 / 数字を組み合わせてください。</div>
+                <div class="errline" id="err_password"></div>
+              </div>
+              <div>
+                <label for="username">ユーザー名（任意）</label>
+                <input id="username" name="username" maxlength="50" placeholder="例）Katou" />
+                <div class="help">※ 省略可能です。</div>
+                <div class="errline" id="err_username"></div>
+              </div>
+            </div>
+
+            <label for="type">アカウント種別 <span class="req">必須</span></label>
+            <select id="type" name="type" required>
+              <option value="">選択してください</option>
+              <option value="individual">個人</option>
+              <option value="company">法人</option>
+            </select>
+            <div class="errline" id="err_type"></div>
+
+            <div class="help" style="margin-top:10px">
+              登録API：<span class="mono" id="apiUrl"></span>
+            </div>
+          </div>
+
+          <div class="section" id="companySection" style="display:none">
+            <h3>法人情報 <small>法人を選択した場合</small></h3>
+
+            <label for="companyName">会社名 <span class="req">法人は必須</span></label>
+            <input id="companyName" name="companyName" maxlength="120" placeholder="例）株式会社〇〇" />
+            <div class="errline" id="err_companyName"></div>
+
+            <div class="row">
+              <div>
+                <label for="companyPostalCode">郵便番号（任意）</label>
+                <input id="companyPostalCode" name="companyPostalCode" maxlength="30" placeholder="例）150-0001" />
+              </div>
+              <div>
+                <label for="companyPhone">電話番号（任意）</label>
+                <input id="companyPhone" name="companyPhone" maxlength="40" placeholder="例）03-1234-5678" />
+              </div>
+            </div>
+
+            <label for="companyAddress">住所（任意）</label>
+            <input id="companyAddress" name="companyAddress" maxlength="200" placeholder="例）東京都渋谷区..." />
+
+            <label for="companyEmail">会社メール（任意）</label>
+            <input id="companyEmail" name="companyEmail" type="email" maxlength="120" placeholder="例）info@company.com" />
+            <div class="errline" id="err_companyEmail"></div>
+
+            <label for="companyWebsite">Webサイト（任意）</label>
+            <input id="companyWebsite" name="companyWebsite" maxlength="200" placeholder="https://example.com" />
+          </div>
+        </div>
+
+        <div class="btnbar">
+          <button class="btn" id="submitBtn" type="submit">
+            <span class="spinner" aria-hidden="true"></span>
+            <span id="btnText">アカウントを作成</span>
+          </button>
+
+          <div id="status" class="status">入力後、「アカウントを作成」を押してください。</div>
+
+          <div class="successBox" id="successBox">
+            <div class="kv">
+              <b>clientId</b>
+              <span class="mono" id="outClientId"></span>
+              <button type="button" class="copy" data-copy="outClientId">コピー</button>
+            </div>
+            <div class="kv">
+              <b>UID</b>
+              <span class="mono" id="outUid"></span>
+              <button type="button" class="copy" data-copy="outUid">コピー</button>
+            </div>
+            <div class="kv">
+              <b>ログインURL</b>
+              <a id="outLoginUrl" href="#" style="color:#065f46;font-weight:900;word-break:break-all"></a>
+              <button type="button" class="copy" data-copy="outLoginUrlText">コピー</button>
+            </div>
+            <div class="help" style="margin-top:8px;color:#065f46">
+              ✅ 登録メールも送信されます。届かない場合は迷惑メールをご確認ください。
+            </div>
+
+            <!-- hidden copy text -->
+            <span id="outLoginUrlText" style="display:none"></span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div>※ このページは <span class="mono">file://</span> ではなく、サーバー経由で開いてください。</div>
+          <div>例：<span class="mono">http://192.168.1.183:4450/register.html</span></div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<script>
+  // ✅ Same-origin endpoint (no hardcoded IP, avoids HTTPS mismatch)
+  const API = new URL("/public/register", window.location.origin).toString();
+  document.getElementById("apiUrl").textContent = API;
+
+  const form = document.getElementById("registerForm");
+  const statusEl = document.getElementById("status");
+  const submitBtn = document.getElementById("submitBtn");
+  const btnText = document.getElementById("btnText");
+  const typeEl = document.getElementById("type");
+  const companySection = document.getElementById("companySection");
+  const successBox = document.getElementById("successBox");
+
+  const outClientId = document.getElementById("outClientId");
+  const outUid = document.getElementById("outUid");
+  const outLoginUrl = document.getElementById("outLoginUrl");
+  const outLoginUrlText = document.getElementById("outLoginUrlText");
+
+  const fields = [
+    "name","email","password","username","type",
+    "companyName","companyEmail"
+  ];
+
+  function setStatus(msg, kind){
+    statusEl.className = "status" + (kind ? (" " + kind) : "");
+    statusEl.textContent = msg;
+  }
+
+  function isEmail(s){
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s||"").trim());
+  }
+
+  function val(id){ return (document.getElementById(id).value || "").trim(); }
+
+  function clearErrors(){
+    fields.forEach((k) => {
+      const el = document.getElementById(k);
+      const err = document.getElementById("err_" + k);
+      if (el) el.setAttribute("aria-invalid", "false");
+      if (err){ err.textContent = ""; err.classList.remove("show"); }
+    });
+  }
+
+  function setFieldError(id, msg){
+    const el = document.getElementById(id);
+    const err = document.getElementById("err_" + id);
+    if (el) el.setAttribute("aria-invalid", "true");
+    if (err){
+      err.textContent = msg;
+      err.classList.add("show");
+    }
+  }
+
+  function setLoading(on){
+    submitBtn.disabled = on;
+    submitBtn.classList.toggle("loading", on);
+    btnText.textContent = on ? "作成中..." : "アカウントを作成";
+  }
+
+  function passwordScore(pw){
+    // 0..4 (simple heuristic)
+    const s = String(pw || "");
+    let score = 0;
+    if (s.length >= 6) score++;
+    if (s.length >= 10) score++;
+    if (/[a-z]/.test(s) && /[A-Z]/.test(s)) score++;
+    if (/\d/.test(s)) score++;
+    return Math.min(4, score);
+  }
+
+  function updatePwMeter(){
+    const pw = document.getElementById("password").value || "";
+    const score = passwordScore(pw);
+    const bar = document.getElementById("pwBar");
+    const badge = document.getElementById("pwBadge");
+    const pct = (score / 4) * 100;
+
+    bar.style.width = pct + "%";
+    // no custom colors rule doesn't apply here (it's HTML), but keep it neutral:
+    bar.style.background = score >= 3 ? "#22c55e" : (score >= 2 ? "#f59e0b" : "#ef4444");
+
+    badge.textContent = score >= 3 ? "強い" : (score >= 2 ? "普通" : "弱い");
+    badge.style.borderColor = score >= 3 ? "rgba(34,197,94,.35)" : (score >= 2 ? "rgba(245,158,11,.35)" : "rgba(239,68,68,.35)");
+    badge.style.background = score >= 3 ? "rgba(34,197,94,.08)" : (score >= 2 ? "rgba(245,158,11,.08)" : "rgba(239,68,68,.08)");
+    badge.style.color = score >= 3 ? "#065f46" : (score >= 2 ? "#7c2d12" : "#7f1d1d");
+  }
+
+  // toggle company section
+  typeEl.addEventListener("change", () => {
+    companySection.style.display = (typeEl.value === "company") ? "block" : "none";
+  });
+
+  // password meter + show/hide
+  document.getElementById("password").addEventListener("input", updatePwMeter);
+  document.getElementById("pwToggle").addEventListener("click", () => {
+    const pw = document.getElementById("password");
+    pw.type = (pw.type === "password") ? "text" : "password";
+    document.getElementById("pwToggle").textContent = (pw.type === "password") ? "表示" : "非表示";
+    pw.focus();
+  });
+
+  // copy buttons
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button.copy");
+    if (!btn) return;
+    const id = btn.getAttribute("data-copy");
+    const el = document.getElementById(id);
+    const text = el ? (el.textContent || el.value || "") : "";
+    if (!text) return;
+
+    try{
+      await navigator.clipboard.writeText(text);
+      btn.textContent = "コピー済";
+      setTimeout(() => btn.textContent = "コピー", 1200);
+    }catch{
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      btn.textContent = "コピー済";
+      setTimeout(() => btn.textContent = "コピー", 1200);
+    }
+  });
+
+  // submit
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearErrors();
+    successBox.classList.remove("show");
+
+    setLoading(true);
+    setStatus("処理中です…（数秒かかる場合があります）", "");
+
+    try {
+      const payload = {
+        name: val("name"),
+        email: val("email"),
+        password: document.getElementById("password").value,
+        username: val("username"),
+        type: typeEl.value,
+
+        companyName: val("companyName"),
+        companyPostalCode: val("companyPostalCode"),
+        companyAddress: val("companyAddress"),
+        companyPhone: val("companyPhone"),
+        companyEmail: val("companyEmail"),
+        companyWebsite: val("companyWebsite"),
+      };
+
+      // validation (field-level)
+      let ok = true;
+      if (!payload.name || payload.name.length < 2){ setFieldError("name","氏名を入力してください（2文字以上）。"); ok=false; }
+      if (!isEmail(payload.email)){ setFieldError("email","正しいメールアドレスを入力してください。"); ok=false; }
+      if (!payload.password || payload.password.length < 6){ setFieldError("password","パスワードは6文字以上で入力してください。"); ok=false; }
+      if (!payload.type){ setFieldError("type","アカウント種別を選択してください。"); ok=false; }
+      if (payload.type === "company" && !payload.companyName){ setFieldError("companyName","法人の場合、会社名は必須です。"); ok=false; }
+      if (payload.companyEmail && !isEmail(payload.companyEmail)){ setFieldError("companyEmail","会社メールの形式が正しくありません。"); ok=false; }
+
+      if (!ok){
+        setStatus("❌ 入力内容をご確認ください。", "err");
+        throw new Error("validation");
+      }
+
+      const res = await fetch(API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      let data = null;
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) data = await res.json();
+      else data = { ok: false, error: await res.text() };
+
+      if (!res.ok || !data.ok) {
+        const msg = data?.error || ("登録に失敗しました（HTTP " + res.status + "）");
+        // friendly mapping
+        const low = msg.toLowerCase();
+        if (low.includes("already") && (low.includes("registered") || low.includes("exists"))){
+          setFieldError("email","このメールアドレスは既に登録されています。");
+        }
+        throw new Error(msg);
+      }
+
+      const clientId = data.clientId;
+      const uid = data.uid;
+
+      const loginUrl = `${window.location.origin.replace(":4450", ":3000")}/${clientId}/login`;
+
+      outClientId.textContent = clientId || "";
+      outUid.textContent = uid || "";
+      outLoginUrl.href = loginUrl;
+      outLoginUrl.textContent = loginUrl;
+      outLoginUrlText.textContent = loginUrl;
+
+      successBox.classList.add("show");
+      setStatus("✅ 登録が完了しました。ログインURLからログインしてください。", "ok");
+
+      // reset form but keep success box
+      form.reset();
+      companySection.style.display = "none";
+      updatePwMeter();
+
+    } catch (err) {
+      const m = String(err?.message || "");
+
+      if (m === "validation") return;
+
+      if (m.toLowerCase().includes("failed to fetch")) {
+        setStatus(
+          "❌ 通信エラー：\n・このページを http://.../register.html から開いているか\n・API(4450)が起動しているか\n・HTTPSでアクセスしていないか\nを確認してください。",
+          "err"
+        );
+      } else {
+        setStatus("❌ " + (m || "登録に失敗しました"), "err");
+      }
+      console.error("Registration error:", err);
+    } finally {
+      setLoading(false);
+    }
+  });
+
+  // init
+  updatePwMeter();
+</script>
+</body>
+</html>

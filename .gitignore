@@ -1,0 +1,47 @@
+# =========================
+# Dependencies
+# =========================
+node_modules/
+server/node_modules/
+
+# =========================
+# Environment files (secrets)
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Firebase Admin keys (never commit)
+# =========================
+serviceAccountKey.json
+server/serviceAccountKey.json
+
+# =========================
+# TLS / cert private keys (never commit)
+# =========================
+*.key
+*.pem
+*.p12
+*.pfx
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# Build outputs
+# =========================
+dist/
+build/
+
+# server env
+server/.env
+server/server.cert
+
+# HLS generated files (never commit)
+server/hls/
+*.ts
+*.m3u8
