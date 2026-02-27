@@ -14,6 +14,7 @@ const os = require("os");
 const https = require("https");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
+const { sendMail } = require("./mailer");
 
 const { startLiveStream, stopLiveStream } = require("./liveStream");
 const cameraLock = require("./cameraLock");
@@ -995,6 +996,237 @@ router.post("/set-overlays", async (req, res) => {
     return res.json({ ok: true });
   } catch (e) {
     return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/* ===================================================
+   ✅ CLIENT REGISTRATION (PRODUCTION)
+   POST /public/register
+
+   Creates:
+   - Firebase Auth user (email/password)
+   - Firestore: clients/{clientId}
+   - Firestore: clients/{clientId}/users/{uid}
+
+   Notes:
+   - This is "public" endpoint, so we must validate hard.
+   - If you want invitation-only later, add a secret invite code check.
+=================================================== */
+
+function isEmail(s) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || "").trim());
+}
+
+function cleanStr(s, max = 200) {
+  return String(s ?? "").trim().slice(0, max);
+}
+
+function mustLen(s, min, max) {
+  const v = cleanStr(s, max);
+  if (v.length < min) return null;
+  return v;
+}
+
+// very small in-memory rate limiter (per IP)
+// (for true production, use Cloudflare/WAF or express-rate-limit + Redis)
+const regHits = new Map(); // ip -> { count, resetAt }
+function allowRegister(ip) {
+  const now = Date.now();
+  const windowMs = 10 * 60 * 1000; // 10 min
+  const max = 20; // 20 tries / 10 min / IP
+
+  const cur = regHits.get(ip);
+  if (!cur || now > cur.resetAt) {
+    regHits.set(ip, { count: 1, resetAt: now + windowMs });
+    return true;
+  }
+  if (cur.count >= max) return false;
+  cur.count += 1;
+  return true;
+}
+
+router.post("/register", async (req, res) => {
+  let uid = null;
+  let clientId = null;
+
+  try {
+    const ip =
+      (req.headers["cf-connecting-ip"] ||
+        req.headers["x-forwarded-for"] ||
+        req.socket?.remoteAddress ||
+        "")
+        .toString()
+        .split(",")[0]
+        .trim();
+
+    if (!allowRegister(ip)) {
+      return res.status(429).json({ ok: false, error: "Too many attempts. Please try again later." });
+    }
+
+    const name = mustLen(req.body?.name, 2, 80);
+    const email = cleanStr(req.body?.email, 120).toLowerCase();
+    const password = String(req.body?.password ?? "");
+    const username = cleanStr(req.body?.username, 50);
+    const type = cleanStr(req.body?.type, 20);
+
+    if (!name) return res.status(400).json({ ok: false, error: "Name is required (min 2 chars)." });
+    if (!isEmail(email)) return res.status(400).json({ ok: false, error: "Valid email is required." });
+    if (!password || password.length < 6) {
+      return res.status(400).json({ ok: false, error: "Password must be at least 6 characters." });
+    }
+    if (!["individual", "company"].includes(type)) {
+      return res.status(400).json({ ok: false, error: "Account Type is required." });
+    }
+
+    const companyName = cleanStr(req.body?.companyName, 120);
+    const companyPostalCode = cleanStr(req.body?.companyPostalCode, 30);
+    const companyAddress = cleanStr(req.body?.companyAddress, 200);
+    const companyPhone = cleanStr(req.body?.companyPhone, 40);
+    const companyEmail = cleanStr(req.body?.companyEmail, 120).toLowerCase();
+    const companyWebsite = cleanStr(req.body?.companyWebsite, 200);
+
+    if (type === "company" && !companyName) {
+      return res.status(400).json({ ok: false, error: "Company Name is required for company accounts." });
+    }
+    if (companyEmail && !isEmail(companyEmail)) {
+      return res.status(400).json({ ok: false, error: "Company Email is invalid." });
+    }
+
+    // 1) Create Auth user
+    let userRecord;
+    try {
+      userRecord = await admin.auth().createUser({
+        email,
+        password,
+        displayName: name,
+      });
+    } catch (e) {
+      const msg = String(e?.message || "");
+      if (msg.toLowerCase().includes("email") && msg.toLowerCase().includes("exists")) {
+        return res.status(409).json({ ok: false, error: "This email is already registered." });
+      }
+      return res.status(500).json({ ok: false, error: "Failed to create user: " + msg });
+    }
+
+    uid = userRecord.uid;
+
+    // 2) Create tenant clientId
+    clientId = db.collection("clients").doc().id;
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    await db.runTransaction(async (tx) => {
+      const clientRef = db.collection("clients").doc(clientId);
+
+      // tenant user
+      const clientUserRef = clientRef.collection("users").doc(uid);
+
+      // ✅ GLOBAL mapping for login page (users/{uid})
+      const globalUserRef = db.collection("users").doc(uid);
+
+      tx.set(clientRef, {
+        clientId,
+        type,
+        name,
+        email,
+        username: username || null,
+
+        company:
+          type === "company"
+            ? {
+                companyName,
+                companyPostalCode: companyPostalCode || null,
+                companyAddress: companyAddress || null,
+                companyPhone: companyPhone || null,
+                companyEmail: companyEmail || null,
+                companyWebsite: companyWebsite || null,
+              }
+            : null,
+
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      tx.set(clientUserRef, {
+        uid,
+        role: "clientAdmin",
+        name,
+        email,
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      // ✅ This is what your LoginPage reads:
+      // getDoc(doc(db,"users", user.uid)) and expects clientId
+      tx.set(
+        globalUserRef,
+        {
+          uid,
+          clientId,
+          role: "clientAdmin",
+          name,
+          email,
+          type,
+          createdAt: now,
+          updatedAt: now,
+        },
+        { merge: true }
+      );
+
+      const pricingRef = clientRef.collection("settings").doc("pricing");
+      tx.set(
+        pricingRef,
+        { freeMode: false, photoPrice: 100, video3Price: 300, video15Price: 500, updatedAt: now },
+        { merge: true }
+      );
+    });
+
+    // 3) Custom claims
+    await admin.auth().setCustomUserClaims(uid, {
+      clientId,
+      role: "clientAdmin",
+    });
+
+    // 4) Email user (best-effort, don’t fail registration if SMTP fails)
+    const loginUrl = `http://192.168.1.183:3000/${clientId}/login`; // ✅ clientId, not uid
+
+    try {
+      await sendMail(
+        email,
+        "【Town Capture】登録完了のお知らせ",
+        `
+        <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.7;color:#0f172a">
+          <h2 style="margin:0 0 12px">登録が完了しました</h2>
+          <p>Town Capture にご登録いただきありがとうございます。以下の情報でログインできます。</p>
+
+          <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:14px">
+            <div><b>登録メールアドレス：</b> ${email}</div>
+            <div><b>UID：</b> ${uid}</div>
+            <div><b>クライアントID：</b> ${clientId}</div>
+            <div><b>ログインURL：</b> <a href="${loginUrl}">${loginUrl}</a></div>
+            <div><b>パスワード：</b> ${password}</div>
+          </div>
+
+          <p style="margin-top:12px;color:#64748b;font-size:13px">
+            ※ セキュリティのため、ログイン後にパスワード変更を推奨します。
+          </p>
+        </div>
+        `
+      );
+    } catch (mailErr) {
+      console.error("⚠️ registration email failed:", mailErr.message);
+    }
+
+    return res.json({ ok: true, clientId, uid, message: "Registration successful" });
+  } catch (err) {
+    console.error("❌ /public/register error:", err);
+
+    // rollback Auth user if created
+    try {
+      if (uid) await admin.auth().deleteUser(uid);
+    } catch (_) {}
+
+    return res.status(500).json({ ok: false, error: err.message || "Registration failed" });
   }
 });
 

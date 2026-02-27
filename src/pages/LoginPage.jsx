@@ -28,23 +28,29 @@ export default function LoginPage() {
      PASSWORD RESET (TENANT SAFE)
   =========================================================== */
   async function handleResetSubmit() {
-    if (!email) {
-      setError(t("enterEmail"));
-      return;
-    }
-
-    try {
-      await sendPasswordResetEmail(auth, email, {
-        url: `${window.location.origin}/${clientId}/login`,
-      });
-
-      setResetOpen(false);
-      setToastMessage(t("resetSent"));
-      setTimeout(() => setToastMessage(""), 3500);
-    } catch (err) {
-      setError(err.message);
-    }
+  if (!email) {
+    setError(t("enterEmail"));
+    return;
   }
+
+  setError("");
+
+  try {
+    const base =
+      import.meta.env.REACT_APP_BASE_URL || window.location.origin;
+
+    await sendPasswordResetEmail(auth, email, {
+      url: `${base}/${clientId}/login`,
+      handleCodeInApp: false,
+    });
+
+    setResetOpen(false);
+    setToastMessage(t("resetSent"));
+    setTimeout(() => setToastMessage(""), 3500);
+  } catch (err) {
+    setError(err.message);
+  }
+}
 
   /* ===========================================================
      LOGIN (TENANT ENFORCED)
