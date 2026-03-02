@@ -1,13 +1,15 @@
-export function getApiBase() {
-  const host = location.hostname;
+// public/capture/assets/js/config.js
 
-  // Local dev
-  if (host === "localhost" || host === "127.0.0.1") {
-    return "http://192.168.1.183:4450"; // change if needed
+const CLOUD_RUN_API = "https://town-capture-api-822639495360.asia-northeast1.run.app";
+
+export function getApiBase() {
+  // Local dev (when you open capture page from your server or localhost)
+  if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
+    return "http://192.168.1.183:4450"; // your local API server
   }
 
-  // GitHub Pages / production
-  return "https://town-capture-api-822639495360.asia-northeast1.run.app";
+  // GitHub Pages / any HTTPS site → MUST use HTTPS API
+  return CLOUD_RUN_API;
 }
 
 export function getCameraId() {
