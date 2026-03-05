@@ -1,6 +1,7 @@
 // live.js (PAGE VERSION - NO MODAL)
 import { apiJson, fetchJsonOrEmpty } from "./api.js";
 
+
 export async function guardCameraOrBlock(API_BASE, cameraId, dom, ui) {
   if (!cameraId) return false;
   try {
