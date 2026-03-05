@@ -113,24 +113,71 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     );
     state.sessionId = s.sessionId;
 
-    // 2) start stream
+    // 2) start stream (RETRY when Cloud Run / ffmpeg is slow)
     if (dom.liveStatus) dom.liveStatus.textContent = "ライブ開始中…";
-    const h = await apiJson(
-      API_BASE,
-      `/public/start-stream?cameraId=${encodeURIComponent(cameraId)}&sessionId=${encodeURIComponent(state.sessionId)}`
-    );
+
+    async function startStreamWithRetry() {
+      const tries = 8;           // total attempts
+      const waitMs = 1500;       // delay between attempts
+
+      for (let i = 0; i < tries; i++) {
+        try {
+          const h = await apiJson(
+            API_BASE,
+            `/public/start-stream?cameraId=${encodeURIComponent(cameraId)}&sessionId=${encodeURIComponent(state.sessionId)}`
+          );
+          // success
+          return h;
+        } catch (e) {
+          // Camera in use -> throw to outer handler (you already handle 409)
+          if (e?.status === 409 || e?.status === 423) throw e;
+
+          const msg = String(e?.message || "").toLowerCase();
+
+          // backend: "Live stream not ready yet. Please retry..."
+          const isNotReady =
+            msg.includes("not ready") ||
+            msg.includes("retry") ||
+            e?.status === 503;
+
+          if (!isNotReady || i === tries - 1) throw e;
+
+          if (dom.liveStatus) dom.liveStatus.textContent = `ライブ準備中… 再試行 (${i + 1}/${tries})`;
+          await new Promise((r) => setTimeout(r, waitMs));
+        }
+      }
+
+      throw new Error("Live stream not ready. Please retry.");
+    }
+
+    const h = await startStreamWithRetry();
 
     // 3) attach HLS
     resetVideo(state, dom.liveVideo, true);
 
+    // IMPORTANT: h.hlsPath is like "/hls/xxx.m3u8?t=..."
     const hlsUrl = API_BASE + h.hlsPath;
 
-    if (window.Hls && window.Hls.isSupported()) {
-      state.liveHls = new window.Hls({ lowLatencyMode: true });
+    // Safari native HLS
+    if (dom.liveVideo?.canPlayType?.("application/vnd.apple.mpegurl")) {
+      dom.liveVideo.src = hlsUrl;
+      try { await dom.liveVideo.play(); } catch {}
+    } else if (window.Hls && window.Hls.isSupported()) {
+      state.liveHls = new window.Hls({
+        lowLatencyMode: true,
+        liveSyncDurationCount: 2,
+        backBufferLength: 30,
+        maxLiveSyncPlaybackRate: 1.5,
+      });
       state.liveHls.loadSource(hlsUrl);
       state.liveHls.attachMedia(dom.liveVideo);
+      state.liveHls.on(window.Hls.Events.ERROR, (evt, data) => {
+        console.warn("HLS error:", data);
+      });
     } else {
+      // fallback (some browsers)
       dom.liveVideo.src = hlsUrl;
+      try { await dom.liveVideo.play(); } catch {}
     }
 
     setPillLive(dom, true);
@@ -143,11 +190,11 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
 
     if (dom.btnLiveCapture) dom.btnLiveCapture.disabled = false;
     if (dom.liveStatus) dom.liveStatus.textContent = "準備完了。「撮影」を押してください。";
-    } catch (e) {
+  } catch (e) {
     clearLiveUiTimeout(state);
 
-    // ✅ CAMERA IN USE (409 Conflict) — your real error
-    if (e?.status === 409) {
+    // ✅ CAMERA IN USE (409 Conflict)
+    if (e?.status === 409 || e?.status === 423) {
       ui.hideOffline?.();
       ui.showInUse?.("Camera is currently in use");
       if (dom.btnLiveCapture) dom.btnLiveCapture.disabled = false;
@@ -155,14 +202,13 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     }
 
     // offline
-    if (String(e.message).toLowerCase().includes("offline")) {
+    if (String(e?.message || "").toLowerCase().includes("offline")) {
       ui.hideInUse?.();
       ui.showOffline(e.message);
       return;
     }
 
-    if (dom.liveStatus) dom.liveStatus.textContent = e.message || "ライブ開始に失敗しました";
+    if (dom.liveStatus) dom.liveStatus.textContent = e?.message || "ライブ開始に失敗しました";
     if (dom.btnLiveCapture) dom.btnLiveCapture.disabled = false;
   }
-
 }

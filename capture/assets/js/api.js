@@ -1,22 +1,46 @@
 export async function apiJson(API_BASE, path, options = {}) {
-  const r = await fetch(API_BASE + path, options);
-  const ct = r.headers.get("content-type") || "";
-  const j = ct.includes("application/json") ? await r.json() : {};
+  const url = API_BASE + path;
 
-  if (!r.ok || j.ok === false) {
-    const err = new Error(j.error || `Request failed (${r.status})`);
-    err.status = r.status;   // ✅ IMPORTANT
-    err.payload = j;         // optional (debug)
+  let r;
+  try {
+    r = await fetch(url, options);
+  } catch (netErr) {
+    const err = new Error("Network error (fetch failed)");
+    err.status = 0;
+    err.url = url;
+    err.cause = netErr;
     throw err;
   }
-  return j;
-}
 
-
-// used for "guard" so you can read error cleanly
-export async function fetchJsonOrEmpty(url, options = {}) {
-  const r = await fetch(url, options);
   const ct = r.headers.get("content-type") || "";
-  const j = ct.includes("application/json") ? await r.json() : {};
-  return { r, j };
+  let j = {};
+  let text = "";
+
+  try {
+    if (ct.includes("application/json")) {
+      j = await r.json();
+    } else {
+      // read text for better error messages (HTML/plain)
+      text = await r.text();
+    }
+  } catch {
+    // ignore parse errors
+  }
+
+  // Normalize error message
+  const serverMsg =
+    (j && (j.error || j.message)) ||
+    (text && text.slice(0, 300)) ||
+    `Request failed (${r.status})`;
+
+  if (!r.ok || j.ok === false) {
+    const err = new Error(serverMsg);
+    err.status = r.status;     // ✅ IMPORTANT
+    err.payload = j;           // json payload if any
+    err.text = text;           // raw text if any
+    err.url = url;             // ✅ helps debugging
+    throw err;
+  }
+
+  return j;
 }
