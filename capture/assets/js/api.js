@@ -1,5 +1,33 @@
 // public/capture/assets/js/api.js
 
+export async function fetchJsonOrEmpty(url, options = {}) {
+  let r;
+  try {
+    r = await fetch(url, options);
+  } catch (netErr) {
+    return {
+      r: { ok: false, status: 0, statusText: "fetch failed" },
+      j: { ok: false, error: "Network error (fetch failed)" },
+    };
+  }
+
+  const ct = (r.headers && r.headers.get && r.headers.get("content-type")) || "";
+  let j = null;
+  let text = "";
+
+  try {
+    if (ct.includes("application/json")) j = await r.json();
+    else text = await r.text();
+  } catch {
+    // ignore parse error
+  }
+
+  if (!j && text) j = { ok: false, error: text.slice(0, 300) };
+  if (!j) j = {};
+
+  return { r, j };
+}
+
 export async function apiJson(API_BASE, path, options = {}) {
   const url = API_BASE + path;
 
@@ -19,14 +47,9 @@ export async function apiJson(API_BASE, path, options = {}) {
   let text = "";
 
   try {
-    if (ct.includes("application/json")) {
-      j = await r.json();
-    } else {
-      text = await r.text();
-    }
-  } catch {
-    // ignore parse errors
-  }
+    if (ct.includes("application/json")) j = await r.json();
+    else text = await r.text();
+  } catch {}
 
   const serverMsg =
     (j && (j.error || j.message)) ||
@@ -43,42 +66,4 @@ export async function apiJson(API_BASE, path, options = {}) {
   }
 
   return j;
-}
-
-/**
- * ✅ Needed by live.js
- * Returns BOTH:
- *  - r: Response
- *  - j: parsed json (or { ok:false, error:text } for non-json, or {} if empty)
- */
-export async function fetchJsonOrEmpty(url, options = {}) {
-  let r;
-  try {
-    r = await fetch(url, options);
-  } catch (netErr) {
-    const err = new Error("Network error (fetch failed)");
-    err.status = 0;
-    err.url = url;
-    err.cause = netErr;
-    throw err;
-  }
-
-  const ct = r.headers.get("content-type") || "";
-  let j = {};
-  let text = "";
-
-  try {
-    if (ct.includes("application/json")) {
-      j = await r.json();
-    } else {
-      text = await r.text();
-      // if server returned text/html, keep something usable
-      j = text ? { ok: false, error: text.slice(0, 300) } : {};
-    }
-  } catch {
-    // body could be empty (204), keep {}
-    j = {};
-  }
-
-  return { r, j };
 }
