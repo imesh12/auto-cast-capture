@@ -1,17 +1,17 @@
 // live.js (PAGE VERSION - NO MODAL)
 import { apiJson, fetchJsonOrEmpty } from "./api.js";
 
-alert("LIVE V2 LOADED 2026-03-06");
+alert("LIVE.JS LOADED 2026-03-06");
 
 export async function guardCameraOrBlock(API_BASE, cameraId, dom, ui) {
   if (!cameraId) return false;
+
   try {
     const { r, j } = await fetchJsonOrEmpty(
       `${API_BASE}/public/overlays?cameraId=${encodeURIComponent(cameraId)}`,
       { cache: "no-store" }
     );
 
-    // ✅ IN USE (if your backend ever returns it here)
     if (r.status === 409 || r.status === 423) {
       ui.hideOffline?.();
       ui.showInUse?.("Camera is currently in use");
@@ -19,7 +19,7 @@ export async function guardCameraOrBlock(API_BASE, cameraId, dom, ui) {
     }
 
     if (!r.ok || j.ok === false) {
-      const msg = (j && j.error) ? String(j.error) : "Camera not available";
+      const msg = j && j.error ? String(j.error) : "Camera not available";
       ui.hideInUse?.();
       ui.showOffline(msg);
       return true;
@@ -35,7 +35,6 @@ export async function guardCameraOrBlock(API_BASE, cameraId, dom, ui) {
   }
 }
 
-
 export function resetVideo(state, videoEl, isLive = false) {
   try {
     const h = isLive ? state.liveHls : state.hls;
@@ -45,7 +44,10 @@ export function resetVideo(state, videoEl, isLive = false) {
   if (isLive) state.liveHls = null;
   else state.hls = null;
 
-  try { videoEl.pause(); } catch {}
+  try {
+    videoEl.pause();
+  } catch {}
+
   videoEl.removeAttribute("src");
   videoEl.load();
 }
@@ -53,6 +55,7 @@ export function resetVideo(state, videoEl, isLive = false) {
 export async function stopServerLive(API_BASE, cameraId, sessionId, reason = "user_close") {
   try {
     if (!cameraId) return;
+
     await fetch(`${API_BASE}/public/stop-stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -76,7 +79,6 @@ function startLiveUiTimeout(limitMs, state, onTimeout) {
 }
 
 function setPillLive(dom, isLive) {
-  // support both old id (#livePill) and new one (#livePill2) if you added it
   const pills = [dom.livePill, dom.livePill2].filter(Boolean);
 
   pills.forEach((pill) => {
@@ -87,7 +89,10 @@ function setPillLive(dom, isLive) {
 }
 
 export function closeLivePage(state, dom) {
-  try { resetVideo(state, dom.liveVideo, true); } catch {}
+  try {
+    resetVideo(state, dom.liveVideo, true);
+  } catch {}
+
   clearLiveUiTimeout(state);
 
   if (dom.liveStatus) dom.liveStatus.textContent = "準備中…";
@@ -115,12 +120,12 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     );
     state.sessionId = s.sessionId;
 
-    // 2) start stream (RETRY when Cloud Run / ffmpeg is slow)
+    // 2) start stream
     if (dom.liveStatus) dom.liveStatus.textContent = "ライブ開始中…";
 
     async function startStreamWithRetry() {
-      const tries = 8;           // total attempts
-      const waitMs = 1500;       // delay between attempts
+      const tries = 8;
+      const waitMs = 1500;
 
       for (let i = 0; i < tries; i++) {
         try {
@@ -128,15 +133,11 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
             API_BASE,
             `/public/start-stream?cameraId=${encodeURIComponent(cameraId)}&sessionId=${encodeURIComponent(state.sessionId)}`
           );
-          // success
           return h;
         } catch (e) {
-          // Camera in use -> throw to outer handler (you already handle 409)
           if (e?.status === 409 || e?.status === 423) throw e;
 
           const msg = String(e?.message || "").toLowerCase();
-
-          // backend: "Live stream not ready yet. Please retry..."
           const isNotReady =
             msg.includes("not ready") ||
             msg.includes("retry") ||
@@ -144,7 +145,10 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
 
           if (!isNotReady || i === tries - 1) throw e;
 
-          if (dom.liveStatus) dom.liveStatus.textContent = `ライブ準備中… 再試行 (${i + 1}/${tries})`;
+          if (dom.liveStatus) {
+            dom.liveStatus.textContent = `ライブ準備中… 再試行 (${i + 1}/${tries})`;
+          }
+
           await new Promise((r) => setTimeout(r, waitMs));
         }
       }
@@ -153,29 +157,31 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     }
 
     const h = await startStreamWithRetry();
-alert("START STREAM JSON:\n" + JSON.stringify(h, null, 2));
+    alert("START STREAM JSON:\n" + JSON.stringify(h, null, 2));
 
-// 3) attach HLS
-resetVideo(state, dom.liveVideo, true);
+    // 3) attach HLS
+    resetVideo(state, dom.liveVideo, true);
 
-const hlsUrl =
-  typeof h?.hlsUrl === "string" && h.hlsUrl.trim()
-    ? h.hlsUrl.trim()
-    : (typeof h?.hlsPath === "string" && h.hlsPath.trim()
-        ? `${API_BASE}${h.hlsPath}`
-        : "");
+    const hlsUrl =
+      typeof h?.hlsUrl === "string" && h.hlsUrl.trim()
+        ? h.hlsUrl.trim()
+        : (typeof h?.hlsPath === "string" && h.hlsPath.trim()
+            ? `${API_BASE}${h.hlsPath}`
+            : "");
 
-alert("Resolved HLS URL:\n" + hlsUrl);
+    alert("Resolved HLS URL:\n" + hlsUrl);
 
-if (!hlsUrl) {
-  throw new Error("HLS URL missing");
-}
+    if (!hlsUrl) {
+      throw new Error("HLS URL missing");
+    }
 
     // Safari native HLS
     if (dom.liveVideo?.canPlayType?.("application/vnd.apple.mpegurl")) {
       dom.liveVideo.src = hlsUrl;
-      try { await dom.liveVideo.play(); } catch {}
-        } else if (window.Hls && window.Hls.isSupported()) {
+      try {
+        await dom.liveVideo.play();
+      } catch {}
+    } else if (window.Hls && window.Hls.isSupported()) {
       state.liveHls = new window.Hls({
         lowLatencyMode: true,
         liveSyncDurationCount: 1,
@@ -200,9 +206,10 @@ if (!hlsUrl) {
         console.warn("HLS error:", data);
       });
     } else {
-      // fallback (some browsers)
       dom.liveVideo.src = hlsUrl;
-      try { await dom.liveVideo.play(); } catch {}
+      try {
+        await dom.liveVideo.play();
+      } catch {}
     }
 
     setPillLive(dom, true);
@@ -218,7 +225,6 @@ if (!hlsUrl) {
   } catch (e) {
     clearLiveUiTimeout(state);
 
-    // ✅ CAMERA IN USE (409 Conflict)
     if (e?.status === 409 || e?.status === 423) {
       ui.hideOffline?.();
       ui.showInUse?.("Camera is currently in use");
@@ -226,7 +232,6 @@ if (!hlsUrl) {
       return;
     }
 
-    // offline
     if (String(e?.message || "").toLowerCase().includes("offline")) {
       ui.hideInUse?.();
       ui.showOffline(e.message);
