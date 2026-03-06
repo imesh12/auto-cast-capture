@@ -152,23 +152,24 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     }
 
     const h = await startStreamWithRetry();
-    console.log("START STREAM JSON:", h);
+alert("START STREAM JSON:\n" + JSON.stringify(h, null, 2));
 
-    // 3) attach HLS
-    resetVideo(state, dom.liveVideo, true);
+// 3) attach HLS
+resetVideo(state, dom.liveVideo, true);
 
-    const hlsUrl =
-     typeof h?.hlsUrl === "string" && h.hlsUrl.trim()
-      ? h.hlsUrl.trim()
-      : (typeof h?.hlsPath === "string" && h.hlsPath.trim()
+const hlsUrl =
+  typeof h?.hlsUrl === "string" && h.hlsUrl.trim()
+    ? h.hlsUrl.trim()
+    : (typeof h?.hlsPath === "string" && h.hlsPath.trim()
         ? `${API_BASE}${h.hlsPath}`
         : "");
 
-console.log("Resolved HLS URL:", hlsUrl);
+alert("Resolved HLS URL:\n" + hlsUrl);
 
 if (!hlsUrl) {
   throw new Error("HLS URL missing");
 }
+
     // Safari native HLS
     if (dom.liveVideo?.canPlayType?.("application/vnd.apple.mpegurl")) {
       dom.liveVideo.src = hlsUrl;
