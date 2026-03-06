@@ -157,10 +157,10 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     // 3) attach HLS
     resetVideo(state, dom.liveVideo, true);
 
-   const hlsUrl =
-  typeof h?.hlsUrl === "string" && h.hlsUrl.trim()
-    ? h.hlsUrl.trim()
-    : (typeof h?.hlsPath === "string" && h.hlsPath.trim()
+    const hlsUrl =
+     typeof h?.hlsUrl === "string" && h.hlsUrl.trim()
+      ? h.hlsUrl.trim()
+      : (typeof h?.hlsPath === "string" && h.hlsPath.trim()
         ? `${API_BASE}${h.hlsPath}`
         : "");
 

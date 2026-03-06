@@ -41,7 +41,7 @@ import {
   clearLiveUiTimeout,
   closeLivePage,
   openLivePage,
-} from "./live.js";
+} from "./live.v2.js";
 
 import { doCapture } from "./capture.js";
 import { startPayment } from "./download.js";
