@@ -99,9 +99,6 @@ export function closeLivePage(state, dom) {
   setPillLive(dom, false);
 }
 
-/**
- * Start live stream into dom.liveVideo (NO MODAL)
- */
 export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI_LIMIT_MS, onTimeout }) {
   try {
     const blocked = await ui.guard();
@@ -112,7 +109,6 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     if (dom.liveStatus) dom.liveStatus.textContent = "セッション作成中…";
     if (dom.btnLiveCapture) dom.btnLiveCapture.disabled = true;
 
-    // 1) create session
     const s = await apiJson(
       API_BASE,
       `/public/session?cameraId=${encodeURIComponent(cameraId)}`,
@@ -120,7 +116,6 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     );
     state.sessionId = s.sessionId;
 
-    // 2) start stream
     if (dom.liveStatus) dom.liveStatus.textContent = "ライブ開始中…";
 
     async function startStreamWithRetry() {
@@ -159,7 +154,6 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     const h = await startStreamWithRetry();
     alert("START STREAM JSON:\n" + JSON.stringify(h, null, 2));
 
-    // 3) attach HLS
     resetVideo(state, dom.liveVideo, true);
 
     const hlsUrl =
@@ -175,7 +169,6 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
       throw new Error("HLS URL missing");
     }
 
-    // Safari native HLS
     if (dom.liveVideo?.canPlayType?.("application/vnd.apple.mpegurl")) {
       dom.liveVideo.src = hlsUrl;
       try {
@@ -213,11 +206,8 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     }
 
     setPillLive(dom, true);
-
-    // overlays
     ui.applyLiveOverlay?.();
 
-    // timeout
     startLiveUiTimeout(LIVE_UI_LIMIT_MS, state, onTimeout);
 
     if (dom.btnLiveCapture) dom.btnLiveCapture.disabled = false;
