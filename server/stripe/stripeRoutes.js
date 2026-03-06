@@ -38,9 +38,9 @@ router.post("/create-checkout-session", async (req, res) => {
     const base = process.env.FRONTEND_BASE_URL;
     if (!base) return res.status(500).json({ error: "FRONTEND_BASE_URL missing" });
 
-    const successUrl = `${base}/${clientId}/dashboard?success=1`;
-    const cancelUrl = `${base}/${clientId}/dashboard?canceled=1`;
-
+    const successUrl = `${base}/#/${clientId}/dashboard?success=1`;
+    const cancelUrl  = `${base}/#/${clientId}/dashboard?canceled=1`;
+    
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       payment_method_types: ["card"],

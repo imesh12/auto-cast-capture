@@ -6,7 +6,11 @@
   <title>AutoCaster View</title>
 
   <!-- keep this if you already serve /hls.js -->
-  <script src="/hls.js"></script>
+  <script src="../hls.js"></script>
+  <script>
+  // ✅ PROD API (Cloud Run)
+  window.API_BASE_URL = "https://town-capture-api-822639495360.asia-northeast1.run.app";
+ </script>
 
   <link href="https://fonts.googleapis.com/css?family=Poppins:400,500,600,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./assets/css/capture.css" />
@@ -389,7 +393,9 @@
     </div>
   </div>
 
+
+
   <!-- Main JS (ESM) -->
-  <script type="module" src="./assets/js/main.js"></script>
+<script type="module" src="./assets/js/main.js?v=20260306-1"></script>
 </body>
 </html>

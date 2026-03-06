@@ -30,6 +30,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "postbuild": "node scripts/copy-capture.js",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build"
   },

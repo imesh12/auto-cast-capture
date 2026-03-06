@@ -407,9 +407,22 @@
   </div>
 
 <script>
-  // ✅ Same-origin endpoint (no hardcoded IP, avoids HTTPS mismatch)
-  const API = new URL("/public/register", window.location.origin).toString();
+  // ✅ API endpoint (local uses same origin, prod uses Cloud Run)
+  const API_BASE_URL =
+    window.API_BASE_URL ||
+    (location.hostname === "localhost" || location.hostname.startsWith("192.168.")
+      ? location.origin // local: http://192.168.x.x:4450
+      : "https://town-capture-api-822639495360.asia-northeast1.run.app"); // prod (Cloud Run)
+
+  const API = `${API_BASE_URL.replace(/\/$/, "")}/public/register`;
   document.getElementById("apiUrl").textContent = API;
+
+  // ✅ Frontend base URL for login link
+  const FRONTEND_BASE_URL =
+    window.FRONTEND_BASE_URL ||
+    (location.hostname === "localhost" || location.hostname.startsWith("192.168.")
+      ? "http://192.168.1.183:3000" // local web
+      : "https://imesh12.github.io/auto-cast-capture"); // GitHub pages
 
   const form = document.getElementById("registerForm");
   const statusEl = document.getElementById("status");
@@ -424,49 +437,50 @@
   const outLoginUrl = document.getElementById("outLoginUrl");
   const outLoginUrlText = document.getElementById("outLoginUrlText");
 
-  const fields = [
-    "name","email","password","username","type",
-    "companyName","companyEmail"
-  ];
+  const fields = ["name", "email", "password", "username", "type", "companyName", "companyEmail"];
 
-  function setStatus(msg, kind){
-    statusEl.className = "status" + (kind ? (" " + kind) : "");
+  function setStatus(msg, kind) {
+    statusEl.className = "status" + (kind ? " " + kind : "");
     statusEl.textContent = msg;
   }
 
-  function isEmail(s){
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s||"").trim());
+  function isEmail(s) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(s || "").trim());
   }
 
-  function val(id){ return (document.getElementById(id).value || "").trim(); }
+  function val(id) {
+    return (document.getElementById(id).value || "").trim();
+  }
 
-  function clearErrors(){
+  function clearErrors() {
     fields.forEach((k) => {
       const el = document.getElementById(k);
       const err = document.getElementById("err_" + k);
       if (el) el.setAttribute("aria-invalid", "false");
-      if (err){ err.textContent = ""; err.classList.remove("show"); }
+      if (err) {
+        err.textContent = "";
+        err.classList.remove("show");
+      }
     });
   }
 
-  function setFieldError(id, msg){
+  function setFieldError(id, msg) {
     const el = document.getElementById(id);
     const err = document.getElementById("err_" + id);
     if (el) el.setAttribute("aria-invalid", "true");
-    if (err){
+    if (err) {
       err.textContent = msg;
       err.classList.add("show");
     }
   }
 
-  function setLoading(on){
+  function setLoading(on) {
     submitBtn.disabled = on;
     submitBtn.classList.toggle("loading", on);
     btnText.textContent = on ? "作成中..." : "アカウントを作成";
   }
 
-  function passwordScore(pw){
-    // 0..4 (simple heuristic)
+  function passwordScore(pw) {
     const s = String(pw || "");
     let score = 0;
     if (s.length >= 6) score++;
@@ -476,7 +490,7 @@
     return Math.min(4, score);
   }
 
-  function updatePwMeter(){
+  function updatePwMeter() {
     const pw = document.getElementById("password").value || "";
     const score = passwordScore(pw);
     const bar = document.getElementById("pwBar");
@@ -484,26 +498,25 @@
     const pct = (score / 4) * 100;
 
     bar.style.width = pct + "%";
-    // no custom colors rule doesn't apply here (it's HTML), but keep it neutral:
-    bar.style.background = score >= 3 ? "#22c55e" : (score >= 2 ? "#f59e0b" : "#ef4444");
+    bar.style.background = score >= 3 ? "#22c55e" : score >= 2 ? "#f59e0b" : "#ef4444";
 
-    badge.textContent = score >= 3 ? "強い" : (score >= 2 ? "普通" : "弱い");
-    badge.style.borderColor = score >= 3 ? "rgba(34,197,94,.35)" : (score >= 2 ? "rgba(245,158,11,.35)" : "rgba(239,68,68,.35)");
-    badge.style.background = score >= 3 ? "rgba(34,197,94,.08)" : (score >= 2 ? "rgba(245,158,11,.08)" : "rgba(239,68,68,.08)");
-    badge.style.color = score >= 3 ? "#065f46" : (score >= 2 ? "#7c2d12" : "#7f1d1d");
+    badge.textContent = score >= 3 ? "強い" : score >= 2 ? "普通" : "弱い";
+    badge.style.borderColor = score >= 3 ? "rgba(34,197,94,.35)" : score >= 2 ? "rgba(245,158,11,.35)" : "rgba(239,68,68,.35)";
+    badge.style.background = score >= 3 ? "rgba(34,197,94,.08)" : score >= 2 ? "rgba(245,158,11,.08)" : "rgba(239,68,68,.08)";
+    badge.style.color = score >= 3 ? "#065f46" : score >= 2 ? "#7c2d12" : "#7f1d1d";
   }
 
   // toggle company section
   typeEl.addEventListener("change", () => {
-    companySection.style.display = (typeEl.value === "company") ? "block" : "none";
+    companySection.style.display = typeEl.value === "company" ? "block" : "none";
   });
 
   // password meter + show/hide
   document.getElementById("password").addEventListener("input", updatePwMeter);
   document.getElementById("pwToggle").addEventListener("click", () => {
     const pw = document.getElementById("password");
-    pw.type = (pw.type === "password") ? "text" : "password";
-    document.getElementById("pwToggle").textContent = (pw.type === "password") ? "表示" : "非表示";
+    pw.type = pw.type === "password" ? "text" : "password";
+    document.getElementById("pwToggle").textContent = pw.type === "password" ? "表示" : "非表示";
     pw.focus();
   });
 
@@ -513,15 +526,14 @@
     if (!btn) return;
     const id = btn.getAttribute("data-copy");
     const el = document.getElementById(id);
-    const text = el ? (el.textContent || el.value || "") : "";
+    const text = el ? el.textContent || el.value || "" : "";
     if (!text) return;
 
-    try{
+    try {
       await navigator.clipboard.writeText(text);
       btn.textContent = "コピー済";
-      setTimeout(() => btn.textContent = "コピー", 1200);
-    }catch{
-      // fallback
+      setTimeout(() => (btn.textContent = "コピー"), 1200);
+    } catch {
       const ta = document.createElement("textarea");
       ta.value = text;
       document.body.appendChild(ta);
@@ -529,7 +541,7 @@
       document.execCommand("copy");
       ta.remove();
       btn.textContent = "コピー済";
-      setTimeout(() => btn.textContent = "コピー", 1200);
+      setTimeout(() => (btn.textContent = "コピー"), 1200);
     }
   });
 
@@ -549,7 +561,6 @@
         password: document.getElementById("password").value,
         username: val("username"),
         type: typeEl.value,
-
         companyName: val("companyName"),
         companyPostalCode: val("companyPostalCode"),
         companyAddress: val("companyAddress"),
@@ -558,16 +569,15 @@
         companyWebsite: val("companyWebsite"),
       };
 
-      // validation (field-level)
       let ok = true;
-      if (!payload.name || payload.name.length < 2){ setFieldError("name","氏名を入力してください（2文字以上）。"); ok=false; }
-      if (!isEmail(payload.email)){ setFieldError("email","正しいメールアドレスを入力してください。"); ok=false; }
-      if (!payload.password || payload.password.length < 6){ setFieldError("password","パスワードは6文字以上で入力してください。"); ok=false; }
-      if (!payload.type){ setFieldError("type","アカウント種別を選択してください。"); ok=false; }
-      if (payload.type === "company" && !payload.companyName){ setFieldError("companyName","法人の場合、会社名は必須です。"); ok=false; }
-      if (payload.companyEmail && !isEmail(payload.companyEmail)){ setFieldError("companyEmail","会社メールの形式が正しくありません。"); ok=false; }
+      if (!payload.name || payload.name.length < 2) { setFieldError("name", "氏名を入力してください（2文字以上）。"); ok = false; }
+      if (!isEmail(payload.email)) { setFieldError("email", "正しいメールアドレスを入力してください。"); ok = false; }
+      if (!payload.password || payload.password.length < 6) { setFieldError("password", "パスワードは6文字以上で入力してください。"); ok = false; }
+      if (!payload.type) { setFieldError("type", "アカウント種別を選択してください。"); ok = false; }
+      if (payload.type === "company" && !payload.companyName) { setFieldError("companyName", "法人の場合、会社名は必須です。"); ok = false; }
+      if (payload.companyEmail && !isEmail(payload.companyEmail)) { setFieldError("companyEmail", "会社メールの形式が正しくありません。"); ok = false; }
 
-      if (!ok){
+      if (!ok) {
         setStatus("❌ 入力内容をご確認ください。", "err");
         throw new Error("validation");
       }
@@ -578,17 +588,14 @@
         body: JSON.stringify(payload),
       });
 
-      let data = null;
       const ct = res.headers.get("content-type") || "";
-      if (ct.includes("application/json")) data = await res.json();
-      else data = { ok: false, error: await res.text() };
+      const data = ct.includes("application/json") ? await res.json() : { ok: false, error: await res.text() };
 
       if (!res.ok || !data.ok) {
-        const msg = data?.error || ("登録に失敗しました（HTTP " + res.status + "）");
-        // friendly mapping
+        const msg = data?.error || `登録に失敗しました（HTTP ${res.status}）`;
         const low = msg.toLowerCase();
-        if (low.includes("already") && (low.includes("registered") || low.includes("exists"))){
-          setFieldError("email","このメールアドレスは既に登録されています。");
+        if (low.includes("already") && (low.includes("registered") || low.includes("exists"))) {
+          setFieldError("email", "このメールアドレスは既に登録されています。");
         }
         throw new Error(msg);
       }
@@ -596,7 +603,7 @@
       const clientId = data.clientId;
       const uid = data.uid;
 
-      const loginUrl = `${window.location.origin.replace(":4450", ":3000")}/${clientId}/login`;
+      const loginUrl = `${FRONTEND_BASE_URL.replace(/\/$/, "")}/#/${clientId}/login`;
 
       outClientId.textContent = clientId || "";
       outUid.textContent = uid || "";
@@ -607,19 +614,21 @@
       successBox.classList.add("show");
       setStatus("✅ 登録が完了しました。ログインURLからログインしてください。", "ok");
 
-      // reset form but keep success box
       form.reset();
       companySection.style.display = "none";
       updatePwMeter();
-
     } catch (err) {
       const m = String(err?.message || "");
 
       if (m === "validation") return;
 
       if (m.toLowerCase().includes("failed to fetch")) {
+        const isLocal = location.hostname === "localhost" || location.hostname.startsWith("192.168.");
         setStatus(
-          "❌ 通信エラー：\n・このページを http://.../register.html から開いているか\n・API(4450)が起動しているか\n・HTTPSでアクセスしていないか\nを確認してください。",
+          "❌ 通信エラー：\n" +
+            (isLocal
+              ? "・このページを server 経由 (http://192.168.x.x:4450/register.html) で開いているか\n・API(4450)が起動しているか"
+              : "・API_BASE_URL (Cloud Run URL) が正しいか\n・Cloud Run 側で CORS が許可されているか (Origin: https://imesh12.github.io)\n・Cloud Run が稼働しているか"),
           "err"
         );
       } else {

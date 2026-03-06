@@ -9,9 +9,16 @@ import { QRCodeCanvas } from "qrcode.react";
  * スマホでQRを読むなら localhost は使えません。
  * PCのLAN IP or 本番ドメインを入れてください。
  */
-function getPublicBaseUrl() {
-  return "http://192.168.1.183:4450"; // capture(Express)側
+
+function getQrBaseUrl() {
+  return "https://imesh12.github.io/auto-cast-capture";
 }
+
+//const captureUrl = `${getQrBaseUrl()}/#/capture?cameraId=${encodeURIComponent(cam.id)}`;
+
+//function getPublicBaseUrl() {
+  //return "http://192.168.1.183:4450"; // capture(Express)側
+//}
 
 // ✅ Move icon OUTSIDE component (stable component identity)
 function DownloadIcon({ size = 18 }) {
@@ -62,7 +69,7 @@ export default function QRCodesPage() {
     );
   }, [clientId]);
 
-  const baseUrl = getPublicBaseUrl();
+  const baseUrl = getQrBaseUrl();
 
   const visible = useMemo(() => {
     if (filter === "all") return cameras;
@@ -138,10 +145,7 @@ export default function QRCodesPage() {
         {visible.map((cam) => {
           const isActive = cam.paymentStatus === "active";
 
-          const captureUrl = `${baseUrl}/capture/?cameraId=${encodeURIComponent(
-            cam.id
-          )}`;
-
+          const captureUrl = `${baseUrl}/capture/index.html?cameraId=${encodeURIComponent(cam.id)}`;
           return (
             <div
               key={cam.id}

@@ -84,6 +84,34 @@ async function downloadToFile(url, outPath) {
   });
 }
 
+/*  new add */
+
+function waitForHlsReady(hlsDir, playlist, keyPrefix, timeoutMs = 15000) {
+  const playlistPath = path.join(hlsDir, playlist);
+  const start = Date.now();
+
+  return new Promise((resolve, reject) => {
+    const check = () => {
+      const playlistOk = fs.existsSync(playlistPath);
+
+      let tsOk = false;
+      try {
+        const files = fs.readdirSync(hlsDir);
+        tsOk = files.some((f) => f.startsWith(`${keyPrefix}_`) && f.endsWith(".ts"));
+      } catch {}
+
+      if (playlistOk && tsOk) return resolve(true);
+
+      if (Date.now() - start > timeoutMs) {
+        return reject(new Error("HLS not ready (no segments yet)"));
+      }
+      setTimeout(check, 200);
+    };
+    check();
+  });
+}
+
+
 /**
  * Returns expression for overlay position (FFmpeg overlay filter).
  * Uses W/H variables, doesn't require real width/height.
@@ -244,6 +272,28 @@ async function resolveCameraOwner(cameraId) {
   return { cameraId, clientId, camera };
 }
 
+
+// ✅ Put this in publicRoutes.js (helpers area)
+function buildRtspUrl(cam) {
+  const host = String(cam.ip || "").trim();
+  if (!host) throw new Error("Camera IP missing");
+
+  const username = String(cam.username || "").trim();
+  const password = String(cam.password || "").trim();
+
+  // encode for special chars
+  const u = encodeURIComponent(username);
+  const p = encodeURIComponent(password);
+
+  // ✅ IMPORTANT: your Firestore port is "4450" sometimes
+  const rtspPort = Number(cam.port || 554);
+
+  // Axis RTSP path (keep as constant unless you store per camera)
+  const rtspPath = "/axis-media/media.amp";
+
+  return `rtsp://${u}:${p}@${host}:${rtspPort}${rtspPath}`;
+}
+
 // ===== Preview generator =====
 async function makePreview({ inputFile, outputFile, isPhoto }) {
   // Keep preview small + watermarked
@@ -302,9 +352,9 @@ router.post("/session", async (req, res) => {
     if (cameraId) cameraLock.unlock(cameraId);
     return res.status(500).json({ ok: false, error: err.message });
   }
-});
+  });
 
-// ===================================================
+  // ===================================================
 // GET /public/start-stream (auto-timeout)
 // ===================================================
 router.get("/start-stream", async (req, res) => {
@@ -313,7 +363,9 @@ router.get("/start-stream", async (req, res) => {
     const sessionId = String(req.query.sessionId || "").trim();
     const force = String(req.query.force || "0") === "1";
 
-    if (!cameraId || !sessionId) return res.status(400).json({ ok: false, error: "Missing cameraId or sessionId" });
+    if (!cameraId || !sessionId) {
+      return res.status(400).json({ ok: false, error: "Missing cameraId or sessionId" });
+    }
 
     const { clientId, camera } = await resolveCameraOwner(cameraId);
 
@@ -321,21 +373,36 @@ router.get("/start-stream", async (req, res) => {
       return res.status(403).json({ ok: false, error: "Camera lock mismatch or expired" });
     }
 
-    const u = encodeURIComponent(camera.username);
-    const p = encodeURIComponent(camera.password);
-    const rtspUrl = `rtsp://${u}:${p}@${camera.ip}:554/axis-media/media.amp`;
+    const rtspUrl = buildRtspUrl(camera);
 
+    // ✅ start stream
     const { playlist } = await startLiveStream(clientId, cameraId, rtspUrl, { force });
 
-    const playlistPath = path.join(__dirname, "hls", playlist);
+    // ✅ store debug info
+    await db.collection("captureSessions").doc(sessionId).set(
+      {
+        playlist,
+        hlsDir: process.env.HLS_DIR || "/tmp/hls",
+        liveStartedAt: nowMs(),
+      },
+      { merge: true }
+    );
+
+    const HLS_DIR = process.env.HLS_DIR || "/tmp/hls";
+    const keyPrefix = `${clientId}_${cameraId}`;
+
+    // ✅ short warm-up check only
     try {
-      await waitForFile(playlistPath, 20000);
-    } catch {
-      console.warn("⚠️ Playlist delay tolerated");
+      await waitForHlsReady(HLS_DIR, playlist, keyPrefix, 8000);
+    } catch (e) {
+      console.warn("⚠️ HLS warm-up delayed:", e.message);
+      // do not fail here; frontend HLS can keep trying
     }
 
     const timeoutKey = `${clientId}_${cameraId}`;
-    if (liveTimeouts.has(timeoutKey)) clearTimeout(liveTimeouts.get(timeoutKey));
+    if (liveTimeouts.has(timeoutKey)) {
+      clearTimeout(liveTimeouts.get(timeoutKey));
+    }
 
     const timeout = setTimeout(async () => {
       try {
@@ -359,9 +426,14 @@ router.get("/start-stream", async (req, res) => {
 
     liveTimeouts.set(timeoutKey, timeout);
 
+    // ✅ use env if set, otherwise fallback to current host
+    const PUBLIC_HLS_BASE_URL = String(
+      process.env.PUBLIC_HLS_BASE_URL || `${req.protocol}://${req.get("host")}/hls`
+    ).replace(/\/+$/, "");
+
     return res.json({
       ok: true,
-      hlsPath: `/hls/${playlist}?t=${Date.now()}`,
+      hlsUrl: `${PUBLIC_HLS_BASE_URL}/${playlist}?t=${Date.now()}`,
       timeoutMs: LIVE_TIMEOUT_MS,
     });
   } catch (err) {
@@ -417,7 +489,7 @@ router.post("/capture", async (req, res) => {
     if (!camSnap.exists) throw new Error("Camera not found");
 
     const cam = camSnap.data() || {};
-    const rtspUrl = `rtsp://${cam.username}:${cam.password}@${cam.ip}:554/axis-media/media.amp`;
+    const rtspUrl = buildRtspUrl(cam);
 
     const capturesDir = path.join(__dirname, "captures");
     if (!fs.existsSync(capturesDir)) fs.mkdirSync(capturesDir, { recursive: true });
@@ -597,6 +669,40 @@ router.post("/capture", async (req, res) => {
   }
 });
 
+/* ===================================================
+   POST /public/create-payment   ✅ FULL PRODUCTION BLOCK
+   - Creates Stripe Checkout (card + PayPay) OR FreeMode token
+   - IMPORTANT: Stripe key must be sanitized to avoid:
+     "Invalid character in header content [Authorization]"
+=================================================== */
+
+// Put these helpers near the top of publicRoutes.js (once)
+function cleanSecret(v) {
+  return String(v || "")
+    .replace(/\u0000/g, "")
+    .replace(/[\r\n]+/g, "") // ✅ remove CR/LF anywhere
+    .trim();
+}
+
+function getStripe() {
+  const key = cleanSecret(process.env.STRIPE_SECRET_KEY);
+  if (!key) throw new Error("STRIPE_SECRET_KEY is missing");
+  if (!/^sk_(test|live)_/.test(key)) throw new Error("STRIPE_SECRET_KEY looks invalid");
+  return require("stripe")(key, {
+    maxNetworkRetries: 2,
+    timeout: 30_000,
+  });
+}
+
+/**
+ * REQUIRED existing helpers in your file:
+ * - nowMs()
+ * - randomToken()
+ * - getPricing(clientId)  -> { freeMode, photoPrice, video3Price, video15Price }
+ * - db (Firestore)
+ * - admin (firebase-admin)
+ */
+
 // ===================================================
 // POST /public/create-payment
 // - paid: returns Stripe checkout URL
@@ -609,30 +715,30 @@ router.post("/create-payment", async (req, res) => {
     const sessionId = String(req.body?.sessionId || "").trim();
     const email = req.body?.email ? String(req.body.email).trim() : null;
 
-    if (!sessionId) return res.status(400).json({ error: "Missing sessionId" });
+    if (!sessionId) return res.status(400).json({ ok: false, error: "Missing sessionId" });
 
     const ref = db.collection("captureSessions").doc(sessionId);
     const snap = await ref.get();
-    if (!snap.exists) return res.status(404).json({ error: "Session not found" });
+    if (!snap.exists) return res.status(404).json({ ok: false, error: "Session not found" });
 
     const data = snap.data() || {};
     const captureType = String(data.captureType || "video");
     const durationSec = Number(data.durationSec || 3);
 
     const framePrice = Number(data?.selectedOverlay?.framePrice || 0);
-    const logoPrice = Number(data?.selectedOverlay?.logoPrice || 0);
+    const logoPrice  = Number(data?.selectedOverlay?.logoPrice || 0);
 
     const pricing = await getPricing(data.clientId);
 
     let basePrice = 0;
     if (pricing.freeMode) basePrice = 0;
-    else if (captureType === "photo") basePrice = pricing.photoPrice;
-    else if (durationSec === 15) basePrice = pricing.video15Price;
-    else basePrice = pricing.video3Price;
+    else if (captureType === "photo") basePrice = Number(pricing.photoPrice || 0);
+    else if (durationSec === 15) basePrice = Number(pricing.video15Price || 0);
+    else basePrice = Number(pricing.video3Price || 0);
 
-    const total = basePrice + framePrice + logoPrice;
+    const total = Math.max(0, Math.round(basePrice + framePrice + logoPrice));
 
-    // FREE MODE
+    // ================= FREE MODE =================
     if (total === 0) {
       const expiresAt = nowMs() + 60 * 60 * 1000;
       const maxDownloads = 3;
@@ -641,6 +747,8 @@ router.post("/create-payment", async (req, res) => {
       await db.collection("downloadTokens").doc(token).set({
         token,
         sessionId,
+        clientId: data.clientId || null,
+        cameraId: data.cameraId || null,
         expiresAt,
         maxDownloads,
         downloadCount: 0,
@@ -682,60 +790,83 @@ router.post("/create-payment", async (req, res) => {
         { merge: true }
       );
 
+      const base = String(process.env.FRONTEND_BASE_URL || "").replace(/\/+$/, "");
       return res.json({
-        url: `${process.env.FRONTEND_BASE_URL}/success?sessionId=${sessionId}`,
+        ok: true,
+        url: `${base}/#/success?sessionId=${encodeURIComponent(sessionId)}`,
         free: true,
       });
     }
 
-    // Paid mode
-    const productName = captureType === "photo" ? "TownCapture Photo" : `TownCapture Video (${durationSec} sec)`;
+    // ================= PAID MODE =================
+    const productName =
+      captureType === "photo" ? "TownCapture Photo" : `TownCapture Video (${durationSec} sec)`;
 
     const lineItems = [];
+
     if (basePrice > 0) {
       lineItems.push({
-        price_data: { currency: "jpy", product_data: { name: productName }, unit_amount: basePrice },
+        price_data: {
+          currency: "jpy",
+          product_data: { name: productName },
+          unit_amount: Math.round(basePrice),
+        },
         quantity: 1,
       });
     }
     if (framePrice > 0) {
       lineItems.push({
-        price_data: { currency: "jpy", product_data: { name: "Premium Frame" }, unit_amount: framePrice },
+        price_data: {
+          currency: "jpy",
+          product_data: { name: "Premium Frame" },
+          unit_amount: Math.round(framePrice),
+        },
         quantity: 1,
       });
     }
     if (logoPrice > 0) {
       lineItems.push({
-        price_data: { currency: "jpy", product_data: { name: "Logo Overlay" }, unit_amount: logoPrice },
+        price_data: {
+          currency: "jpy",
+          product_data: { name: "Logo Overlay" },
+          unit_amount: Math.round(logoPrice),
+        },
         quantity: 1,
       });
     }
 
+    const base = String(process.env.FRONTEND_BASE_URL || "").replace(/\/+$/, "");
+    if (!base) return res.status(500).json({ ok: false, error: "FRONTEND_BASE_URL missing" });
+
     const checkout = await stripe.checkout.sessions.create({
       mode: "payment",
-      payment_method_types: ["card", "paypay"],
+      payment_method_types: ["card"],
+
       line_items: lineItems,
       customer_creation: "always",
       ...(email ? { customer_email: email } : {}),
+
       metadata: {
         sessionId,
-        cameraId: data.cameraId,
-        clientId: data.clientId,
+        cameraId: data.cameraId || "",
+        clientId: data.clientId || "",
         total: String(total),
         captureType,
         durationSec: String(durationSec),
       },
+
       payment_intent_data: {
         metadata: {
           sessionId,
-          cameraId: data.cameraId,
-          clientId: data.clientId,
+          cameraId: data.cameraId || "",
+          clientId: data.clientId || "",
           captureType,
           durationSec: String(durationSec),
         },
       },
-      success_url: `${process.env.FRONTEND_BASE_URL}/success?sessionId=${sessionId}`,
-      cancel_url: `${process.env.FRONTEND_BASE_URL}/capture.html?sessionId=${sessionId}&canceled=1`,
+
+      success_url: `${base}/#/success?sessionId=${encodeURIComponent(sessionId)}`,
+      cancel_url: `${base}/#/capture?sessionId=${encodeURIComponent(sessionId)}&canceled=1`,
     });
 
     await ref.set(
@@ -746,6 +877,7 @@ router.post("/create-payment", async (req, res) => {
         endUserEmail: email || data.endUserEmail || null,
         paymentPhase: "pending",
         paymentCreatedAt: nowMs(),
+
         pricingSnapshot: {
           captureType,
           durationSec,
@@ -764,10 +896,10 @@ router.post("/create-payment", async (req, res) => {
       { merge: true }
     );
 
-    return res.json({ url: checkout.url });
+    return res.json({ ok: true, url: checkout.url });
   } catch (err) {
-    console.error("create-payment error:", err);
-    return res.status(500).json({ error: err.message });
+    console.error("❌ create-payment error:", err);
+    return res.status(500).json({ ok: false, error: err.message || "create-payment failed" });
   }
 });
 
@@ -1188,7 +1320,9 @@ router.post("/register", async (req, res) => {
     });
 
     // 4) Email user (best-effort, don’t fail registration if SMTP fails)
-    const loginUrl = `http://192.168.1.183:3000/${clientId}/login`; // ✅ clientId, not uid
+    const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || "http://localhost:3000";
+    // HashRouter login route
+    const loginUrl = `${FRONTEND_BASE_URL.replace(/\/$/, "")}/#/${clientId}/login`;
 
     try {
       await sendMail(

@@ -32,8 +32,8 @@ router.post("/create-checkout", async(req,res)=>{
           quantity:1,
         }
       ],
-      success_url:`${process.env.BASE_URL}/payment-success?cameraId=${cameraId}`,
-      cancel_url:`${process.env.BASE_URL}/payment-cancel`,
+      success_url: `${process.env.FRONTEND_BASE_URL}/#/${clientId}/dashboard?success=1`,
+      cancel_url: `${process.env.FRONTEND_BASE_URL}/#/${clientId}/dashboard?canceled=1`,
     });
 
     return res.json({ url: session.url });

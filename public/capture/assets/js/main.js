@@ -434,7 +434,7 @@ window.addEventListener("beforeunload", () => {
   try {
     if (cameraId && state.sessionId) {
       navigator.sendBeacon(
-        `${API_BASE}/public/stop-stream`,
+     `${API_BASE.replace(/\/$/, "")}/public/stop-stream`,
         new Blob(
           [
             JSON.stringify({

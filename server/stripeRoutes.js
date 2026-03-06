@@ -34,10 +34,22 @@ console.log("✅ stripeRoutes.js loaded (FINAL SINGLE SOURCE)");
 /* ===================================================
    SAFE STRIPE LOADER
 =================================================== */
+function cleanSecret(v) {
+  return String(v || "")
+    .replace(/\u0000/g, "")     // remove nulls (rare)
+    .replace(/[\r\n]+/g, "")    // remove CR/LF anywhere (IMPORTANT)
+    .trim();
+}
+
 function getStripe() {
-  const key = process.env.STRIPE_SECRET_KEY;
+  const key = cleanSecret(process.env.STRIPE_SECRET_KEY);
   if (!key) throw new Error("STRIPE_SECRET_KEY is missing");
-  return require("stripe")(key);
+  if (!/^sk_(test|live)_/.test(key)) throw new Error("STRIPE_SECRET_KEY looks invalid");
+  return require("stripe")(key, {
+    // optional: better network behavior on Cloud Run
+    maxNetworkRetries: 2,
+    timeout: 30_000,
+  });
 }
 
 /* ===================================================
@@ -85,7 +97,8 @@ function getPublicServerBaseUrl(req) {
 
 // short signed URL generated PER download click
 async function createSignedDownloadUrlShort(storagePath, sessionId, isPhoto) {
-  const bucket = admin.storage().bucket();
+  const bucketName = process.env.FIREBASE_STORAGE_BUCKET;
+const bucket = bucketName ? admin.storage().bucket(bucketName) : admin.storage().bucket();
   const filename = isPhoto ? `TownCapture_${sessionId}.jpg` : `TownCapture_${sessionId}.mp4`;
 
   const [url] = await bucket.file(storagePath).getSignedUrl({
@@ -166,7 +179,7 @@ function setDlCookie(res, token) {
   res.cookie(DL_COOKIE_NAME, value, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: true,
     maxAge: 60 * 60 * 1000,
     path: "/stripe/dl",
   });
@@ -450,8 +463,8 @@ router.post("/create-checkout-session", async (req, res) => {
     const base = process.env.FRONTEND_BASE_URL;
     if (!base) return res.status(500).json({ error: "FRONTEND_BASE_URL missing" });
 
-    const successUrl = `${base}/${clientId}/dashboard?success=1`;
-    const cancelUrl = `${base}/${clientId}/dashboard?canceled=1`;
+    const successUrl = `${base}/#/${clientId}/dashboard?success=1`;
+    const cancelUrl  = `${base}/#/${clientId}/dashboard?canceled=1`;
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -600,23 +613,34 @@ router.post("/dl/:token/go", async (req, res) => {
   }
 });
 
+
+
 /* ===================================================
    STRIPE WEBHOOK (SINGLE)
 =================================================== */
 router.post("/webhook", async (req, res) => {
   const stripe = getStripe();
 
+// ✅ safe debug (no secrets printed)
+  const sig = req.headers["stripe-signature"];
+  console.log("WEBHOOK hit:", {
+    hasSignature: !!sig,
+    bodyIsBuffer: Buffer.isBuffer(req.body),
+    bodyLen: req.body?.length || 0,
+    hasWebhookSecret: !!process.env.STRIPE_WEBHOOK_SECRET,
+  });
+
   let event;
-  try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      req.headers["stripe-signature"],
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err) {
-    console.error("❌ Webhook signature error:", err.message);
-    return res.status(400).send("Webhook signature error");
-  }
+   try {
+   event = stripe.webhooks.constructEvent(
+    req.body,
+    req.headers["stripe-signature"],
+    cleanSecret(process.env.STRIPE_WEBHOOK_SECRET)
+  );
+} catch (err) {
+  console.error("❌ Webhook signature error:", err.message);
+  return res.status(400).send("Webhook signature error");
+}
 
   // Idempotency
   try {

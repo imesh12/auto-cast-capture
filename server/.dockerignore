@@ -1,0 +1,9 @@
+node_modules
+captures
+frames
+hls
+tmp
+cert
+*.log
+.env
+serviceAccountKey.json

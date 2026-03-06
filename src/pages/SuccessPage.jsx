@@ -56,11 +56,11 @@ export default function SuccessPage() {
   const [params] = useSearchParams();
   const sessionId = params.get("sessionId");
 
-  const API_BASE = useMemo(() => {
-    const host = window.location.hostname;
-    if (host === "localhost" || host === "127.0.0.1") return "http://192.168.1.183:4450";
-    return `http://${host}:4450`;
-  }, []);
+ const API_BASE = useMemo(() => {
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") return "http://192.168.1.183:4450";
+  return "https://town-capture-api-822639495360.asia-northeast1.run.app";
+}, []);
 
   const [status, setStatus] = useState("checking"); // checking | paid | failed
   const [phase, setPhase] = useState("pending");

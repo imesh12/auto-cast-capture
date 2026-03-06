@@ -31,8 +31,8 @@ export default function CameraStatus() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelCam, setCancelCam] = useState(null);
 
-  const serverUrl = process.env.REACT_APP_SERVER_URL;
-  if (!serverUrl) throw new Error("REACT_APP_SERVER_URL is not set");
+  const serverUrl = process.env.REACT_APP_API_BASE_URL;
+if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
 
   const idToken = localStorage.getItem("idToken") || "";
 

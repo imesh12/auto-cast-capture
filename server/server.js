@@ -10,7 +10,10 @@ const os = require("os");
 /* ===========================================================
    1️⃣ ENV (MUST BE FIRST)
 =========================================================== */
-require("dotenv").config({ path: path.join(__dirname, ".env") });
+const envPath = path.join(__dirname, ".env");
+if (fs.existsSync(envPath)) {
+  require("dotenv").config({ path: envPath });
+}
 
 console.log("STRIPE_SECRET_KEY loaded:", !!process.env.STRIPE_SECRET_KEY);
 console.log("STRIPE_WEBHOOK_SECRET loaded:", !!process.env.STRIPE_WEBHOOK_SECRET);
@@ -19,12 +22,12 @@ console.log("STRIPE_WEBHOOK_SECRET loaded:", !!process.env.STRIPE_WEBHOOK_SECRET
    2️⃣ FIREBASE ADMIN
 =========================================================== */
 const admin = require("firebase-admin");
-const serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.applicationDefault(),
   storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
 });
+
 
 const firestore = admin.firestore();
 
@@ -130,7 +133,7 @@ setInterval(async () => {
 /* ===========================================================
    5️⃣ ENV SETTINGS
 =========================================================== */
-const PORT = Number(process.env.PORT || 4450);
+const PORT = Number(process.env.PORT || 8080);
 
 function getLocalIP() {
   const nets = os.networkInterfaces();
@@ -144,18 +147,36 @@ function getLocalIP() {
 const LOCAL_IP = getLocalIP();
 
 /* ===========================================================
-   6️⃣ CORS (DEV + LAN SAFE)
+   6️⃣ CORS (DEV + PROD SAFE) — FIXED
 =========================================================== */
-app.use(
-  cors({
-    origin: [
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-      "http://192.168.1.183:3000", // ✅ add your React host
-    ],
-    credentials: true,
-  })
-);
+const allowedOrigins = new Set([
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://imesh12.github.io",
+]);
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+
+  // requests like curl / server-to-server have no origin
+  if (!origin) return next();
+
+  // allow LAN testing (any port)
+  const isLan = /^http:\/\/192\.168\.\d+\.\d+(:\d+)?$/.test(origin);
+
+  if (allowedOrigins.has(origin) || isLan) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS");
+  }
+
+  // Always end preflight quickly
+  if (req.method === "OPTIONS") return res.sendStatus(204);
+
+  next();
+});
 
 /* ===========================================================
    7️⃣ LOGGING
@@ -185,7 +206,7 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(cookieParser());
-app.use("/hls", express.static(path.join(__dirname, "hls")));
+//app.use("/hls", express.static(path.join(__dirname, "hls")));
 
 
 /* ===========================================================
@@ -200,28 +221,38 @@ app.use("/previews", express.static(path.join(__dirname, "public", "previews")))
 app.use("/frames", frameRoutes);
 
 /* ===========================================================
-   🔟 HLS STATIC FILES
+   🔟 HLS STATIC FILES (Cloud Run safe: /tmp)
 =========================================================== */
-const hlsFolder = path.join(__dirname, "hls");
-if (!fs.existsSync(hlsFolder)) fs.mkdirSync(hlsFolder, { recursive: true });
 
+const HLS_DIR = process.env.HLS_DIR || "/tmp/hls";
+fs.mkdirSync(HLS_DIR, { recursive: true });
+console.log("✅ HLS_DIR:", HLS_DIR);
+
+app.get("/debug/hls", (req, res) => {
+  try {
+    const files = fs.readdirSync(HLS_DIR);
+    res.json({ HLS_DIR, count: files.length, files: files.slice(-200) });
+  } catch (e) {
+    res.status(500).json({ HLS_DIR, error: String(e) });
+  }
+});
+
+// ✅ serve m3u8/ts files created by ffmpeg
 app.use(
   "/hls",
-  express.static(hlsFolder, {
-    setHeaders(res, filePath) {
-      res.setHeader("Cache-Control", "no-store");
-      res.setHeader("Access-Control-Allow-Origin", "*");
-
-      if (filePath.endsWith(".m3u8")) {
-        res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-      }
-      if (filePath.endsWith(".ts")) {
-        res.setHeader("Content-Type", "video/MP2T");
-      }
+  (req, res, next) => {
+    res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Cache-Control", "no-store");
+    next();
+  },
+  express.static(HLS_DIR, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".m3u8")) res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+      if (filePath.endsWith(".ts")) res.setHeader("Content-Type", "video/mp2t");
     },
   })
 );
-
 /* ===========================================================
    1️⃣1️⃣ HEALTH CHECK
 =========================================================== */

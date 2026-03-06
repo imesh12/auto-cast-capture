@@ -5,7 +5,8 @@ import { db } from "../firebase";
 import { collection, getDocs, doc, getDoc } from "firebase/firestore";
 
 const SERVER =
-  process.env.REACT_APP_SERVER_URL || "http://192.168.1.166:4450";
+  (process.env.REACT_APP_API_BASE_URL || "https://town-capture-api-822639495360.asia-northeast1.run.app")
+    .replace(/\/+$/, "");
 
 export default function CapturePage() {
   const videoRef = useRef(null);
@@ -58,34 +59,43 @@ export default function CapturePage() {
       .catch(() => setError("Session init failed"));
   }, [cameraId]);
 
-  /* ===============================
-     LOAD CLIENT ID FROM CAMERA
-  ================================ */
-  useEffect(() => {
-    if (!cameraId) return;
+ /* ===============================
+   LOAD CLIENT ID FROM CAMERA
+================================ */
+useEffect(() => {
+  if (!cameraId) return;
 
-    async function loadClient() {
-      const snap = await getDoc(doc(db, "cameras", cameraId));
-      if (snap.exists()) setClientId(snap.data().clientId);
+  async function loadClient() {
+    const snap = await getDoc(doc(db, "cameras", cameraId));
+    if (snap.exists()) setClientId(snap.data().clientId);
+  }
+
+  loadClient();
+}, [cameraId]);
+
+ /* ===============================
+   LOAD OVERLAYS (via API)
+================================ */
+useEffect(() => {
+  if (!cameraId) return;
+
+  (async () => {
+    try {
+      const res = await fetch(
+        `${SERVER}/public/overlays?cameraId=${encodeURIComponent(cameraId)}`,
+        { cache: "no-store" }
+      );
+
+      const json = await res.json();
+      if (!res.ok || json.ok === false)
+        throw new Error(json.error || "Failed to load overlays");
+
+      setOverlays(Array.isArray(json) ? json : json.overlays || []);
+    } catch (e) {
+      setError(e.message);
     }
-
-    loadClient();
-  }, [cameraId]);
-
-  /* ===============================
-     LOAD OVERLAYS
-  ================================ */
-  useEffect(() => {
-    if (!clientId) return;
-
-    async function loadOverlays() {
-      const snap = await getDocs(collection(db, "clients", clientId, "frames"));
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setOverlays(data);
-    }
-
-    loadOverlays();
-  }, [clientId]);
+  })();
+}, [cameraId]);
 
   /* ===============================
      CLEANUP HLS

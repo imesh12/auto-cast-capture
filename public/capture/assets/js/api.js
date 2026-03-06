@@ -1,22 +1,69 @@
-export async function apiJson(API_BASE, path, options = {}) {
-  const r = await fetch(API_BASE + path, options);
-  const ct = r.headers.get("content-type") || "";
-  const j = ct.includes("application/json") ? await r.json() : {};
+// public/capture/assets/js/api.js
 
-  if (!r.ok || j.ok === false) {
-    const err = new Error(j.error || `Request failed (${r.status})`);
-    err.status = r.status;   // ✅ IMPORTANT
-    err.payload = j;         // optional (debug)
-    throw err;
+export async function fetchJsonOrEmpty(url, options = {}) {
+  let r;
+  try {
+    r = await fetch(url, options);
+  } catch (netErr) {
+    return {
+      r: { ok: false, status: 0, statusText: "fetch failed" },
+      j: { ok: false, error: "Network error (fetch failed)" },
+    };
   }
-  return j;
+
+  const ct = (r.headers && r.headers.get && r.headers.get("content-type")) || "";
+  let j = null;
+  let text = "";
+
+  try {
+    if (ct.includes("application/json")) j = await r.json();
+    else text = await r.text();
+  } catch {
+    // ignore parse error
+  }
+
+  if (!j && text) j = { ok: false, error: text.slice(0, 300) };
+  if (!j) j = {};
+
+  return { r, j };
 }
 
+export async function apiJson(API_BASE, path, options = {}) {
+  const url = API_BASE + path;
 
-// used for "guard" so you can read error cleanly
-export async function fetchJsonOrEmpty(url, options = {}) {
-  const r = await fetch(url, options);
+  let r;
+  try {
+    r = await fetch(url, options);
+  } catch (netErr) {
+    const err = new Error("Network error (fetch failed)");
+    err.status = 0;
+    err.url = url;
+    err.cause = netErr;
+    throw err;
+  }
+
   const ct = r.headers.get("content-type") || "";
-  const j = ct.includes("application/json") ? await r.json() : {};
-  return { r, j };
+  let j = {};
+  let text = "";
+
+  try {
+    if (ct.includes("application/json")) j = await r.json();
+    else text = await r.text();
+  } catch {}
+
+  const serverMsg =
+    (j && (j.error || j.message)) ||
+    (text && text.slice(0, 300)) ||
+    `Request failed (${r.status})`;
+
+  if (!r.ok || j.ok === false) {
+    const err = new Error(serverMsg);
+    err.status = r.status;
+    err.payload = j;
+    err.text = text;
+    err.url = url;
+    throw err;
+  }
+
+  return j;
 }

@@ -36,13 +36,16 @@ export default function LoginPage() {
   setError("");
 
   try {
-    const base =
-      import.meta.env.REACT_APP_BASE_URL || window.location.origin;
+   const FRONTEND_BASE_URL =
+   import.meta.env.VITE_FRONTEND_BASE_URL ||
+   window.FRONTEND_BASE_URL ||
+  `${window.location.origin}${window.location.pathname.split("/").slice(0, 2).join("/")}`;
+  // Explanation: if running on /auto-cast-capture/... it keeps that repo base.
 
-    await sendPasswordResetEmail(auth, email, {
-      url: `${base}/${clientId}/login`,
-      handleCodeInApp: false,
-    });
+   await sendPasswordResetEmail(auth, email, {
+   url: `${FRONTEND_BASE_URL.replace(/\/$/, "")}/#/${clientId}/login`,
+   handleCodeInApp: false,
+   });
 
     setResetOpen(false);
     setToastMessage(t("resetSent"));

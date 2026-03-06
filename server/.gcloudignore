@@ -1,0 +1,23 @@
+# Never upload secrets
+.env
+.env.*
+serviceAccountKey.json
+*.pem
+*.key
+*.cert
+
+# Node
+node_modules
+npm-debug.log
+
+# Large runtime folders
+captures
+frames
+hls
+tmp
+test
+cert
+stripe
+
+# Git
+.git

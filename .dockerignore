@@ -1,0 +1,17 @@
+# Node
+node_modules
+npm-debug.log
+
+# local env / secrets
+.env
+server/.env
+serviceAccountKey.json
+server/serviceAccountKey.json
+
+# build artifacts not needed for server
+build
+dist
+
+
+.git
+.vscode
