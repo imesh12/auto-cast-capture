@@ -49,6 +49,9 @@ import { startPayment } from "./download.js";
 const API_BASE = getApiBase();
 const cameraId = getCameraId();
 
+window.__tcDebug = { state, dom, API_BASE, cameraId };
+console.log("TC DEBUG READY", window.__tcDebug);
+
 /* ---------- small UI adapter ---------- */
 const ui = {
   showModal: (el) => showModal(dom, el),
