@@ -38,7 +38,17 @@ export async function guardCameraOrBlock(API_BASE, cameraId, dom, ui) {
 export function resetVideo(state, videoEl, isLive = false) {
   try {
     const h = isLive ? state.liveHls : state.hls;
-    if (h) h.destroy();
+    if (h) {
+      try {
+        h.stopLoad?.();
+      } catch {}
+      try {
+        h.detachMedia?.();
+      } catch {}
+      try {
+        h.destroy();
+      } catch {}
+    }
   } catch (e) {
     console.warn("resetVideo destroy failed:", e);
   }
@@ -52,6 +62,7 @@ export function resetVideo(state, videoEl, isLive = false) {
 
   try {
     videoEl.removeAttribute("src");
+    videoEl.src = "";
     videoEl.load();
   } catch {}
 }
