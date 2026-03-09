@@ -46,7 +46,7 @@ export function resetVideo(state, videoEl, isLive = false) {
         h.detachMedia?.();
       } catch {}
       try {
-        h.destroy();
+        h.destroy?.();
       } catch {}
     }
   } catch (e) {
@@ -114,7 +114,14 @@ export function closeLivePage(state, dom) {
   setPillLive(dom, false);
 }
 
-export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI_LIMIT_MS, onTimeout }) {
+export async function openLivePage(
+  API_BASE,
+  cameraId,
+  state,
+  dom,
+  ui,
+  { LIVE_UI_LIMIT_MS, onTimeout }
+) {
   try {
     const blocked = await ui.guard();
     if (blocked) return;
@@ -129,6 +136,7 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
       `/public/session?cameraId=${encodeURIComponent(cameraId)}`,
       { method: "POST" }
     );
+
     state.sessionId = s.sessionId;
 
     if (dom.liveStatus) dom.liveStatus.textContent = "ライブ開始中…";
@@ -141,7 +149,9 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
         try {
           const h = await apiJson(
             API_BASE,
-            `/public/start-stream?cameraId=${encodeURIComponent(cameraId)}&sessionId=${encodeURIComponent(state.sessionId)}`
+            `/public/start-stream?cameraId=${encodeURIComponent(
+              cameraId
+            )}&sessionId=${encodeURIComponent(state.sessionId)}`
           );
           return h;
         } catch (e) {
@@ -191,21 +201,26 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     console.log("window.Hls exists:", !!window.Hls);
     console.log("Hls.js supported:", canUseHlsJs);
 
-    if (canUseNativeHls) {
-      dom.liveVideo.src = playbackUrl;
-      try {
-        await dom.liveVideo.play();
-      } catch (e) {
-        console.warn("native HLS play failed:", e);
-      }
-    } else if (canUseHlsJs) {
+    dom.liveVideo.muted = true;
+    dom.liveVideo.playsInline = true;
+
+    // ✅ Use Hls.js first
+    if (canUseHlsJs) {
       state.liveHls = new window.Hls({
-        lowLatencyMode: true,
-        liveSyncDurationCount: 1,
-        liveMaxLatencyDurationCount: 3,
-        backBufferLength: 10,
-        maxLiveSyncPlaybackRate: 1.5,
-        startPosition: -1,
+        lowLatencyMode: false,
+        backBufferLength: 30,
+        maxBufferLength: 10,
+        maxMaxBufferLength: 20,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 6,
+        manifestLoadingTimeOut: 20000,
+        manifestLoadingMaxRetry: 6,
+        manifestLoadingRetryDelay: 1000,
+        levelLoadingTimeOut: 20000,
+        levelLoadingMaxRetry: 4,
+        fragLoadingTimeOut: 20000,
+        fragLoadingMaxRetry: 6,
+        enableWorker: true,
       });
 
       state.liveHls.loadSource(playbackUrl);
@@ -223,7 +238,7 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
         console.log("HLS level loaded:", data);
       });
 
-      state.liveHls.on(window.Hls.Events.ERROR, (evt, data) => {
+      state.liveHls.on(window.Hls.Events.ERROR, (_, data) => {
         console.warn("HLS error:", data);
 
         if (data?.fatal) {
@@ -231,7 +246,7 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
             case window.Hls.ErrorTypes.NETWORK_ERROR:
               console.warn("Fatal HLS network error, trying startLoad()");
               try {
-                state.liveHls.startLoad();
+                state.liveHls?.startLoad();
               } catch (e) {
                 console.warn("startLoad failed:", e);
               }
@@ -240,7 +255,7 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
             case window.Hls.ErrorTypes.MEDIA_ERROR:
               console.warn("Fatal HLS media error, trying recoverMediaError()");
               try {
-                state.liveHls.recoverMediaError();
+                state.liveHls?.recoverMediaError();
               } catch (e) {
                 console.warn("recoverMediaError failed:", e);
               }
@@ -249,9 +264,10 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
             default:
               console.warn("Fatal HLS unrecoverable error, destroying instance");
               try {
-                state.liveHls.destroy();
+                state.liveHls?.destroy();
               } catch {}
               state.liveHls = null;
+
               if (dom.liveStatus) {
                 dom.liveStatus.textContent = "ライブ再生エラーが発生しました。再試行してください。";
               }
@@ -259,8 +275,17 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
           }
         }
       });
+    } else if (canUseNativeHls) {
+      // ✅ fallback only
+      dom.liveVideo.src = playbackUrl;
+
+      try {
+        await dom.liveVideo.play();
+      } catch (e) {
+        console.warn("native HLS play failed:", e);
+      }
     } else {
-      throw new Error("HLS.js is not loaded. Please include hls.min.js in index.html.");
+      throw new Error("HLS is not supported in this browser.");
     }
 
     setPillLive(dom, true);
@@ -283,11 +308,16 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     if (String(e?.message || "").toLowerCase().includes("offline")) {
       ui.hideInUse?.();
       ui.showOffline(e.message);
+      if (dom.btnLiveCapture) dom.btnLiveCapture.disabled = false;
       return;
     }
 
     console.warn("openLivePage failed:", e);
-    if (dom.liveStatus) dom.liveStatus.textContent = e?.message || "ライブ開始に失敗しました";
+
+    if (dom.liveStatus) {
+      dom.liveStatus.textContent = e?.message || "ライブ開始に失敗しました";
+    }
+
     if (dom.btnLiveCapture) dom.btnLiveCapture.disabled = false;
   }
 }
