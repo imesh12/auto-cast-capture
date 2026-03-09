@@ -2,7 +2,7 @@
 import { getApiBase, getCameraId, LIVE_UI_LIMIT_MS } from "./config.js";
 import { state } from "./state.js";
 import { dom } from "./dom.js";
-alert("MAIN JS LOADED 2026-03-06");
+// alert("MAIN JS LOADED 2026-03-06");
 import {
   showApp,
   setOverlaySelectionVisible,

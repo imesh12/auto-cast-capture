@@ -1,7 +1,7 @@
 // live.js (PAGE VERSION - NO MODAL)
 import { apiJson, fetchJsonOrEmpty } from "./api.js";
 
-alert("LIVE.JS LOADED 2026-03-06");
+//alert("LIVE.JS LOADED 2026-03-06");
 
 export async function guardCameraOrBlock(API_BASE, cameraId, dom, ui) {
   if (!cameraId) return false;
@@ -152,7 +152,7 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
     }
 
     const h = await startStreamWithRetry();
-    alert("START STREAM JSON:\n" + JSON.stringify(h, null, 2));
+   // alert("START STREAM JSON:\n" + JSON.stringify(h, null, 2));
 
     resetVideo(state, dom.liveVideo, true);
 
@@ -163,7 +163,7 @@ export async function openLivePage(API_BASE, cameraId, state, dom, ui, { LIVE_UI
             ? `${API_BASE}${h.hlsPath}`
             : "");
 
-    alert("Resolved HLS URL:\n" + hlsUrl);
+   // alert("Resolved HLS URL:\n" + hlsUrl);
 
     if (!hlsUrl) {
       throw new Error("HLS URL missing");
