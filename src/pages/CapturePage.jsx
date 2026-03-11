@@ -290,7 +290,7 @@ useEffect(() => {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex justify-center">
       <div className="w-full max-w-3xl p-4 space-y-4">
-        <h1 className="text-2xl font-bold">Town Capture</h1>
+        <h1 className="text-2xl font-bold">AutoCaster View</h1>
 
         {error && (
           <div className="bg-red-700 px-3 py-2 rounded text-sm">{error}</div>

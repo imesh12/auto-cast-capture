@@ -1,6 +1,6 @@
 # auto-cast-capture
 
-Town Capture / Auto Cast Capture system.
+AutoCaster View / Auto Cast Capture system.
 
 This repository contains:
 - **Client (React / CRA)**: Admin UI (dashboard, cameras, QR, settings)

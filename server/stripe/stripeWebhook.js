@@ -71,7 +71,7 @@ async function markCapturePaid({ checkoutSessionObj, eventType }) {
   // Optional email (safe)
   if (email && downloadUrl) {
     try {
-      const subject = isPhoto ? "📸 Your Town Capture photo is ready" : "🎥 Your Town Capture video is ready";
+      const subject = isPhoto ? "📸 Your AutoCaster View photo is ready" : "🎥 Your AutoCaster View video is ready";
       await sendMail(
         email,
         subject,

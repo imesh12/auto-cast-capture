@@ -8,9 +8,6 @@ const admin = require("firebase-admin");
 
 const liveProcesses = new Map();
 
-/* =========================================================
-   HELPERS
-========================================================= */
 function ensureHlsDir() {
   const dir = process.env.HLS_DIR || "/tmp/hls";
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -81,9 +78,6 @@ function logoXY(position, pad = 30, logoW = 260, logoH = 260) {
   }
 }
 
-/* =========================================================
-   STOP LIVE STREAM
-========================================================= */
 function stopLiveStream(key) {
   const proc = liveProcesses.get(key);
   if (!proc) return false;
@@ -92,54 +86,57 @@ function stopLiveStream(key) {
 
   try {
     proc.stdin?.write("q\n");
-  } catch {}
+  } catch (e) {
+    console.warn("stdin write failed:", key, e?.message);
+  }
 
   try {
     proc.kill("SIGTERM");
-  } catch {}
+  } catch (e) {
+    console.warn("SIGTERM failed:", key, e?.message);
+  }
 
   setTimeout(() => {
-    if (!proc.killed) {
+    if (liveProcesses.has(key)) {
       console.warn("⚠️ Force killing FFmpeg:", key);
       try {
         proc.kill("SIGKILL");
-      } catch {}
+      } catch (e) {
+        console.warn("SIGKILL failed:", key, e?.message);
+      }
     }
   }, 1000);
-
-  proc.once("exit", () => {
-    console.log("✅ FFmpeg fully stopped:", key);
-    liveProcesses.delete(key);
-  });
 
   return true;
 }
 
-/* =========================================================
-   START LIVE STREAM
-========================================================= */
-async function startLiveStream(clientId, cameraId, rtspUrl, opts = {}) {
+async function startLiveStream(clientId, cameraId, sessionId, rtspUrl, opts = {}) {
   const { force = false } = opts;
+
   const key = `${clientId}_${cameraId}`;
+  const hlsPrefix = `${clientId}_${cameraId}`; // stable per camera
   const hlsDir = ensureHlsDir();
 
   if (force && liveProcesses.has(key)) {
     stopLiveStream(key);
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 1000));
   }
 
-  const streamId = key;
-  const playlist = `${key}.m3u8`;
-  const outputPath = path.join(hlsDir, playlist);
+  const existing = liveProcesses.get(key);
+  if (existing && !force) {
+    console.log("ℹ️ Live stream already running for camera:", key, "playlist:", existing.playlist);
+    return { playlist: existing.playlist };
+  }
 
-  cleanupHlsFiles(key);
+  const playlist = `${hlsPrefix}.m3u8`;
+  const outputPath = path.join(hlsDir, playlist);
+  const segmentPattern = path.join(hlsDir, `${hlsPrefix}_%03d.ts`);
+
+  cleanupHlsFiles(hlsPrefix);
 
   const db = admin.firestore();
   const bucket = admin.storage().bucket();
 
-  /* ===============================
-     LOAD SELECTED OVERLAYS
-  ================================ */
   let frameData = null;
   let logoData = null;
   let logoPosition = "top-left";
@@ -186,18 +183,15 @@ async function startLiveStream(clientId, cameraId, rtspUrl, opts = {}) {
     console.warn("⚠️ Live overlay load failed:", e.message);
   }
 
-  /* ===============================
-     DOWNLOAD OVERLAYS (TEMP)
-  ================================ */
   const tmpDir = path.join(os.tmpdir(), "towncapture_live_overlays");
   if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
 
   const localFramePng = frameData
-    ? path.join(tmpDir, `frame_${cameraId}.png`)
+    ? path.join(tmpDir, `frame_${cameraId}_${sessionId}.png`)
     : null;
 
   const localLogoPng = logoData
-    ? path.join(tmpDir, `logo_${cameraId}.png`)
+    ? path.join(tmpDir, `logo_${cameraId}_${sessionId}.png`)
     : null;
 
   if (frameData?.storagePath) {
@@ -216,13 +210,12 @@ async function startLiveStream(clientId, cameraId, rtspUrl, opts = {}) {
     await downloadToFile(url, localLogoPng);
   }
 
-  /* ===============================
-     BUILD FFMPEG ARGS
-  ================================ */
   const ffArgs = [
     "-rtsp_transport", "tcp",
     "-fflags", "nobuffer",
     "-flags", "low_delay",
+    "-analyzeduration", "500000",
+    "-probesize", "500000",
     "-i", rtspUrl,
   ];
 
@@ -231,35 +224,28 @@ async function startLiveStream(clientId, cameraId, rtspUrl, opts = {}) {
 
   let filterComplex = null;
 
-  // Important:
-  // We include scale=1280:-2 INSIDE filterComplex when overlays exist.
-  // If no overlay exists, we add normal -vf later.
-
   if (frameData && logoData) {
     const xy = logoXY(logoPosition);
     filterComplex =
       `[1:v][0:v]scale2ref=w=iw:h=ih[frame][base];` +
       `[base][frame]overlay=0:0[tmp];` +
       `[2:v]scale=260:-1[logo];` +
-      `[tmp][logo]overlay=${xy},scale=1280:-2[out]`;
+      `[tmp][logo]overlay=${xy},scale=960:-2[out]`;
   } else if (frameData) {
     filterComplex =
       `[1:v][0:v]scale2ref=w=iw:h=ih[frame][base];` +
-      `[base][frame]overlay=0:0,scale=1280:-2[out]`;
+      `[base][frame]overlay=0:0,scale=960:-2[out]`;
   } else if (logoData) {
     const xy = logoXY(logoPosition);
     filterComplex =
       `[1:v]scale=260:-1[logo];` +
-      `[0:v][logo]overlay=${xy},scale=1280:-2[out]`;
+      `[0:v][logo]overlay=${xy},scale=960:-2[out]`;
   }
 
   if (filterComplex) {
-    ffArgs.push(
-      "-filter_complex", filterComplex,
-      "-map", "[out]"
-    );
+    ffArgs.push("-filter_complex", filterComplex, "-map", "[out]");
   } else {
-    ffArgs.push("-vf", "scale=1280:-2");
+    ffArgs.push("-vf", "scale=960:-2");
   }
 
   ffArgs.push(
@@ -268,33 +254,34 @@ async function startLiveStream(clientId, cameraId, rtspUrl, opts = {}) {
     "-preset", "veryfast",
     "-tune", "zerolatency",
     "-pix_fmt", "yuv420p",
-
-    // reduce startup delay / segment size
-    "-r", "15",
-    "-b:v", "1200k",
-    "-maxrate", "1200k",
-    "-bufsize", "2400k",
-
-    // keyframe each second (for 15fps + hls_time 1)
-    "-g", "15",
-    "-keyint_min", "15",
+    "-r", "10",
+    "-b:v", "500k",
+    "-maxrate", "600k",
+    "-bufsize", "1200k",
+    "-g", "10",
+    "-keyint_min", "10",
     "-sc_threshold", "0",
-
     "-f", "hls",
-    "-hls_time", "1",
-    "-hls_list_size", "3",
+    "-hls_time", "2",
+    "-hls_list_size", "5",
     "-hls_flags", "delete_segments+independent_segments+omit_endlist",
-    "-hls_segment_filename",
-    path.join(hlsDir, `${streamId}_%03d.ts`),
+    "-hls_segment_filename", segmentPattern,
     outputPath
   );
 
   console.log("▶️ Starting FFmpeg:", key);
+  console.log("▶️ HLS prefix:", hlsPrefix);
+  console.log("▶️ Playlist:", playlist);
   console.log("▶️ HLS output:", outputPath);
+  console.log("▶️ Segment pattern:", segmentPattern);
 
   const ffmpeg = spawn("ffmpeg", ffArgs, {
     stdio: ["pipe", "pipe", "pipe"],
   });
+
+  ffmpeg.playlist = playlist;
+  ffmpeg.sessionId = sessionId;
+  ffmpeg.hlsPrefix = hlsPrefix;
 
   ffmpeg.stderr.on("data", (d) => {
     console.log(`FFMPEG[${key}] ${d.toString()}`);

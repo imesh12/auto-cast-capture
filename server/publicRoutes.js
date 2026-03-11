@@ -354,7 +354,7 @@ router.post("/session", async (req, res) => {
   }
   });
 
-  // ===================================================
+ // ===================================================
 // GET /public/start-stream (auto-timeout)
 // ===================================================
 router.get("/start-stream", async (req, res) => {
@@ -375,23 +375,24 @@ router.get("/start-stream", async (req, res) => {
 
     const rtspUrl = buildRtspUrl(camera);
 
-    // ✅ start stream
-    const { playlist } = await startLiveStream(clientId, cameraId, rtspUrl, { force });
+    // stream process can still be per camera, but HLS output must be unique per session
+    const { playlist } = await startLiveStream(clientId, cameraId, sessionId, rtspUrl, { force });
 
-    // ✅ store debug info
     await db.collection("captureSessions").doc(sessionId).set(
       {
         playlist,
         hlsDir: process.env.HLS_DIR || "/tmp/hls",
         liveStartedAt: nowMs(),
+        phase: "live",
       },
       { merge: true }
     );
 
     const HLS_DIR = process.env.HLS_DIR || "/tmp/hls";
-    const keyPrefix = `${clientId}_${cameraId}`;
 
-    // ✅ short warm-up check only
+    // unique HLS prefix for THIS session
+    const keyPrefix = `${clientId}_${cameraId}_${sessionId}`;
+
     try {
       await waitForHlsReady(HLS_DIR, playlist, keyPrefix, 8000);
     } catch (e) {
@@ -399,6 +400,7 @@ router.get("/start-stream", async (req, res) => {
       // do not fail here; frontend HLS can keep trying
     }
 
+    // timeout can still remain per camera
     const timeoutKey = `${clientId}_${cameraId}`;
     if (liveTimeouts.has(timeoutKey)) {
       clearTimeout(liveTimeouts.get(timeoutKey));
@@ -426,14 +428,13 @@ router.get("/start-stream", async (req, res) => {
 
     liveTimeouts.set(timeoutKey, timeout);
 
-    // ✅ use env if set, otherwise fallback to current host
     const PUBLIC_HLS_BASE_URL = String(
       process.env.PUBLIC_HLS_BASE_URL || `${req.protocol}://${req.get("host")}/hls`
     ).replace(/\/+$/, "");
 
     return res.json({
       ok: true,
-      hlsUrl: `${PUBLIC_HLS_BASE_URL}/${playlist}?t=${Date.now()}`,
+      hlsUrl: `${PUBLIC_HLS_BASE_URL}/${playlist}`,
       timeoutMs: LIVE_TIMEOUT_MS,
     });
   } catch (err) {
@@ -1327,11 +1328,11 @@ router.post("/register", async (req, res) => {
     try {
       await sendMail(
         email,
-        "【Town Capture】登録完了のお知らせ",
+        "【AutoCaster View】登録完了のお知らせ",
         `
         <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.7;color:#0f172a">
           <h2 style="margin:0 0 12px">登録が完了しました</h2>
-          <p>Town Capture にご登録いただきありがとうございます。以下の情報でログインできます。</p>
+          <p>AutoCaster View にご登録いただきありがとうございます。以下の情報でログインできます。</p>
 
           <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:14px">
             <div><b>登録メールアドレス：</b> ${email}</div>

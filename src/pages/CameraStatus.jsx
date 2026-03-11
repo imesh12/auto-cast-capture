@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import CancelSubscriptionDialog from "../components/CancelSubscriptionDialog";
 
 import { db } from "../firebase";
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import { useAuth } from "../context/AuthContext";
 
 /**
@@ -14,8 +14,13 @@ import { useAuth } from "../context/AuthContext";
  *    - uiCancelState: "processing" (client-side hint only)
  *    - status: "Active" | "Canceling" | "Inactive" (server/webhook truth)
  * - Date fallback:
- *    - Shows cam.nextBillingDate, else latest invoice.periodEnd, else "-"
- * - Invoice ordering uses createdAt (paidAt can be null and break ordering)
+ *    - Shows cam.nextBillingDate
+ *    - else cam.cancelEffectiveDate
+ *    - else latest invoice.periodEnd
+ *    - else latest invoice.createdAt
+ *    - else "-"
+ * - Invoice sort is now done in frontend to avoid Firestore orderBy issues
+ *   when some invoice docs have missing/null createdAt.
  */
 
 export default function CameraStatus() {
@@ -24,6 +29,8 @@ export default function CameraStatus() {
 
   const [cameras, setCameras] = useState([]);
   const [invoiceMap, setInvoiceMap] = useState({}); // { [camId]: invoices[] }
+  const [invoiceLoadingMap, setInvoiceLoadingMap] = useState({}); // { [camId]: boolean }
+
   const [expandedId, setExpandedId] = useState(null);
   const [loadingId, setLoadingId] = useState(null);
   const [success, setSuccess] = useState(false);
@@ -31,8 +38,9 @@ export default function CameraStatus() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelCam, setCancelCam] = useState(null);
 
-  const serverUrl = process.env.REACT_APP_API_BASE_URL;
-if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
+  const serverUrl =
+    process.env.REACT_APP_API_BASE_URL ||
+    "https://town-capture-api-822639495360.asia-northeast1.run.app";
 
   const idToken = localStorage.getItem("idToken") || "";
 
@@ -64,15 +72,38 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
     return null;
   };
 
+  const toMillis = (v) => {
+    const d = toDate(v);
+    return d ? d.getTime() : 0;
+  };
+
   const formatJP = (v) => {
     const d = toDate(v);
     return d ? d.toLocaleDateString("ja-JP") : "-";
   };
 
-  // ✅ UI-only "processing" state (written by client)
+  const sortInvoicesNewestFirst = (list) => {
+    return [...list].sort((a, b) => {
+      const ta =
+        toMillis(a.createdAt) ||
+        toMillis(a.paidAt) ||
+        toMillis(a.periodEnd) ||
+        0;
+
+      const tb =
+        toMillis(b.createdAt) ||
+        toMillis(b.paidAt) ||
+        toMillis(b.periodEnd) ||
+        0;
+
+      return tb - ta;
+    });
+  };
+
+  // UI-only "processing" state
   const isCancellingNow = (cam) => cam?.uiCancelState === "processing";
 
-  // ✅ Server truth for scheduled cancel
+  // Server truth for scheduled cancel
   const isCancelScheduled = (cam) =>
     cam?.cancelAtPeriodEnd === true || cam?.status === "Canceling";
 
@@ -97,14 +128,16 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
     return "次回請求日";
   };
 
-  // ✅ Date fallback: nextBillingDate -> cancelEffectiveDate -> latest invoice periodEnd
   const getDateValue = (cam, invoices) => {
     const latestInv = invoices?.[0] || null;
-    const invoiceFallback = latestInv?.periodEnd || null;
+    const invoiceFallback = latestInv?.periodEnd || latestInv?.createdAt || null;
 
     if (isCancelScheduled(cam)) {
-      return formatJP(cam?.cancelEffectiveDate || cam?.nextBillingDate || invoiceFallback);
+      return formatJP(
+        cam?.cancelEffectiveDate || cam?.nextBillingDate || invoiceFallback
+      );
     }
+
     return formatJP(cam?.nextBillingDate || invoiceFallback);
   };
 
@@ -131,6 +164,8 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
      3) Live invoices per camera
      - One onSnapshot per camera
      - Cleans up removed cameras
+     - No Firestore orderBy
+     - Sort in frontend
   =============================== */
   const invoiceUnsubsRef = useRef({}); // { [camId]: unsubscribeFn }
 
@@ -147,7 +182,14 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
           existing[camId]?.();
         } catch {}
         delete existing[camId];
+
         setInvoiceMap((prev) => {
+          const next = { ...prev };
+          delete next[camId];
+          return next;
+        });
+
+        setInvoiceLoadingMap((prev) => {
           const next = { ...prev };
           delete next[camId];
           return next;
@@ -161,24 +203,28 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
 
       const invRef = collection(db, "clients", clientId, "cameras", cam.id, "invoices");
 
-      // ✅ paidAt can be null in some docs, so order by createdAt (more reliable)
-      const qInv = query(invRef, orderBy("createdAt", "desc"));
+      setInvoiceLoadingMap((prev) => ({ ...prev, [cam.id]: true }));
 
       existing[cam.id] = onSnapshot(
-        qInv,
+        invRef,
         (snapInv) => {
-          const invoices = snapInv.docs.map((d) => ({ id: d.id, ...d.data() }));
+          const invoices = sortInvoicesNewestFirst(
+            snapInv.docs.map((d) => ({ id: d.id, ...d.data() }))
+          );
+
           setInvoiceMap((prev) => ({ ...prev, [cam.id]: invoices }));
+          setInvoiceLoadingMap((prev) => ({ ...prev, [cam.id]: false }));
         },
         (err) => {
           console.error("Invoice onSnapshot error:", err);
           setInvoiceMap((prev) => ({ ...prev, [cam.id]: [] }));
+          setInvoiceLoadingMap((prev) => ({ ...prev, [cam.id]: false }));
         }
       );
     });
 
     return () => {
-      // no-op (full cleanup on unmount below)
+      // cleanup handled by unmount effect below
     };
   }, [clientId, cameras]);
 
@@ -264,7 +310,6 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
 
   return (
     <div className={`${cardBg} p-4 overflow-x-auto`}>
-      {/* HEADER */}
       <div className="flex items-center gap-3 mb-4">
         <h3 className="text-lg font-semibold flex-1">
           {t("payment.cameraStatus") || "カメラ課金ステータス"}
@@ -280,7 +325,6 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
         )}
       </div>
 
-      {/* TABLE */}
       <table className="min-w-full text-sm">
         <thead className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400">
           <tr>
@@ -296,13 +340,13 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
         <tbody>
           {cameras.map((cam) => {
             const invoices = invoiceMap?.[cam.id] || [];
+            const invoiceLoading = !!invoiceLoadingMap?.[cam.id];
             const badge = getBadge(cam);
             const canceling = isCancellingNow(cam) || isCancelScheduled(cam);
 
             return (
               <React.Fragment key={cam.id}>
                 <tr className="border-b last:border-b-0 border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60">
-                  {/* Camera */}
                   <td className="py-3">
                     <div className="flex flex-col">
                       <span className="font-medium">{cam.name || "-"}</span>
@@ -312,30 +356,31 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
                     </div>
                   </td>
 
-                  {/* Badge */}
                   <td className="py-3">
                     <span className={`px-2 py-1 rounded-full text-xs ${badge.cls}`}>
                       {badge.label}
                     </span>
                   </td>
 
-                  {/* Date */}
                   <td className="py-3">
                     <div className="leading-tight">
                       <div className="text-xs text-slate-500 dark:text-slate-400">
                         {getDateLabel(cam)}
                       </div>
-                      <div className="font-medium">{getDateValue(cam, invoices)}</div>
+                      <div className="font-medium">
+                        {invoiceLoading && !cam?.nextBillingDate
+                          ? "読込中..."
+                          : getDateValue(cam, invoices)}
+                      </div>
                     </div>
                   </td>
 
-                  {/* Subscription id */}
                   <td className="py-3 text-xs">{cam.subscriptionId || "-"}</td>
 
-                  {/* Invoice count */}
-                  <td className="py-3 text-xs">{invoices.length} 件</td>
+                  <td className="py-3 text-xs">
+                    {invoiceLoading ? "読込中..." : `${invoices.length} 件`}
+                  </td>
 
-                  {/* Actions */}
                   <td className="py-3">
                     <div className="flex gap-1 text-xs">
                       {!isActive(cam) && (
@@ -371,11 +416,12 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
                   </td>
                 </tr>
 
-                {/* Expanded invoices */}
                 {expandedId === cam.id && (
                   <tr>
                     <td colSpan={6} className="bg-slate-50 dark:bg-slate-800/40 p-3">
-                      {invoices.length === 0 ? (
+                      {invoiceLoading ? (
+                        <div className="text-xs text-slate-500">請求書を読込中...</div>
+                      ) : invoices.length === 0 ? (
                         <div className="text-xs text-slate-500">請求書はありません</div>
                       ) : (
                         <div className="space-y-2">
@@ -425,7 +471,6 @@ if (!serverUrl) throw new Error("REACT_APP_API_BASE_URL is not set");
         </tbody>
       </table>
 
-      {/* CANCEL DIALOG */}
       <CancelSubscriptionDialog
         open={cancelOpen}
         onClose={() => {

@@ -51,27 +51,28 @@ function guessFilename(url) {
 }
 
 export default function SuccessPage() {
-  // ✅ hooks MUST be inside component
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const sessionId = params.get("sessionId");
 
- const API_BASE = useMemo(() => {
-  const host = window.location.hostname;
-  if (host === "localhost" || host === "127.0.0.1") return "http://192.168.1.183:4450";
-  return "https://town-capture-api-822639495360.asia-northeast1.run.app";
-}, []);
+  const API_BASE = useMemo(() => {
+    const envBase = process.env.REACT_APP_API_BASE_URL;
+    if (envBase) return envBase.replace(/\/+$/, "");
 
-  const [status, setStatus] = useState("checking"); // checking | paid | failed
+    const host = window.location.hostname;
+    if (host === "localhost" || host === "127.0.0.1") {
+      return "http://192.168.1.183:4450";
+    }
+
+    return "https://town-capture-api-822639495360.asia-northeast1.run.app";
+  }, []);
+
+  const [status, setStatus] = useState("checking");
   const [phase, setPhase] = useState("pending");
 
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [captureSessionId, setCaptureSessionId] = useState(null);
-
-  // ✅ token from stripeRoutes.js (downloadTokens)
   const [downloadToken, setDownloadToken] = useState(null);
 
-  // optional from backend
   const [fileName, setFileName] = useState(null);
   const [sizeBytes, setSizeBytes] = useState(null);
   const [modeLabel, setModeLabel] = useState("写真");
@@ -109,6 +110,7 @@ export default function SuccessPage() {
           `${API_BASE}/public/payment-status?sessionId=${encodeURIComponent(sessionId)}`,
           { cache: "no-store" }
         );
+
         const data = await res.json();
         if (cancelled) return;
 
@@ -118,11 +120,7 @@ export default function SuccessPage() {
 
         setPhase(data.phase || "pending");
         setPreviewUrl(data.previewUrl || null);
-        setCaptureSessionId(data.captureSessionId || null);
-
-        // ✅ IMPORTANT: your /public/payment-status MUST return downloadToken
         setDownloadToken(data.downloadToken || null);
-
         setFileName(data.fileName || null);
         setSizeBytes(typeof data.sizeBytes === "number" ? data.sizeBytes : null);
         setModeLabel(data.modeLabel || (data.captureType === "photo" ? "写真" : "動画") || "写真");
@@ -158,6 +156,7 @@ export default function SuccessPage() {
       setError("Payment not confirmed yet.");
       return;
     }
+
     if (!downloadToken) {
       setError("Paid, but missing downloadToken from server.");
       return;
@@ -165,11 +164,8 @@ export default function SuccessPage() {
 
     setDownloading(true);
     try {
-      // ✅ Landing page (cookie nonce set here)
       const url = `${API_BASE}/stripe/dl/${encodeURIComponent(downloadToken)}`;
       window.open(url, "_blank", "noopener,noreferrer");
-
-      // optional: move user to end page
       navigate("/end?from=download", { replace: true });
     } catch (e) {
       setError(String(e.message || e));
@@ -238,7 +234,9 @@ export default function SuccessPage() {
               title="別タブで開く"
               disabled={!previewUrlNoCache}
               onClick={() => {
-                if (previewUrlNoCache) window.open(previewUrlNoCache, "_blank", "noopener,noreferrer");
+                if (previewUrlNoCache) {
+                  window.open(previewUrlNoCache, "_blank", "noopener,noreferrer");
+                }
               }}
             >
               🖼️
@@ -279,7 +277,7 @@ export default function SuccessPage() {
 
         <div className="mt-4 text-center text-xs leading-6 text-slate-500">
           上記ボタンでデータのダウンロードが可能です。<br />
-          メールでもダウンロードURLをお送りしていますのでそちらからダウンロードすることもできます。
+          ダウンロード方法はご利用時の設定によって異なる場合があります。
         </div>
 
         <div className="mt-2 text-center text-xs font-extrabold text-red-500">

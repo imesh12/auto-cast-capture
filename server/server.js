@@ -1,6 +1,6 @@
 /********************************************
  * server/server.js — PRODUCTION AUDITED
- * Town Capture API
+ * AutoCaster View API
  ********************************************/
 const cookieParser = require("cookie-parser");
 const path = require("path");
@@ -243,13 +243,23 @@ app.use(
   (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
     res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     next();
   },
   express.static(HLS_DIR, {
+    fallthrough: true,
+    etag: false,
+    lastModified: false,
+    maxAge: 0,
     setHeaders: (res, filePath) => {
-      if (filePath.endsWith(".m3u8")) res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-      if (filePath.endsWith(".ts")) res.setHeader("Content-Type", "video/mp2t");
+      if (filePath.endsWith(".m3u8")) {
+        res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+      }
+      if (filePath.endsWith(".ts")) {
+        res.setHeader("Content-Type", "video/mp2t");
+      }
     },
   })
 );

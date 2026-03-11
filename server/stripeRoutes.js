@@ -26,7 +26,7 @@
 const express = require("express");
 const admin = require("firebase-admin");
 const crypto = require("crypto");
-const { sendMail } = require("./mailer"); // optional but supported
+const { sendCaptureEmail } = require("./mailer"); // optional but supported
 
 const router = express.Router();
 console.log("✅ stripeRoutes.js loaded (FINAL SINGLE SOURCE)");
@@ -312,30 +312,29 @@ async function markCapturePaid({ checkoutSessionObj, eventType, reqForEmailLink 
   );
 
   // Email download landing
+    // Email download landing
   if (email) {
     try {
-      const subject = isPhoto ? "📸 Your Town Capture photo is ready" : "🎥 Your Town Capture video is ready";
-
       const base = process.env.PUBLIC_SERVER_BASE_URL
         ? process.env.PUBLIC_SERVER_BASE_URL.replace(/\/+$/, "")
         : reqForEmailLink
         ? getPublicServerBaseUrl(reqForEmailLink)
         : null;
 
-      if (!base) console.warn("⚠️ PUBLIC_SERVER_BASE_URL missing. Email link may be wrong.");
+      if (!base) {
+        console.warn("⚠️ PUBLIC_SERVER_BASE_URL missing. Email link may be wrong.");
+      }
 
       const downloadPageUrl = `${base}/stripe/dl/${token}`;
 
-      await sendMail(
-        email,
-        subject,
-        `
-          <h2>Your ${isPhoto ? "photo" : "video"} is ready</h2>
-          <p>✅ Download available for <b>1 hour</b> / max <b>3 times</b>.</p>
-          <p><a href="${downloadPageUrl}">Download here</a></p>
-          <p>⏰ Available until: ${jst(expiresAt)}</p>
-        `
-      );
+      await sendCaptureEmail({
+        to: email,
+        downloadUrl: downloadPageUrl,
+        previewUrl: data.previewUrl || null,
+        cameraName: data.cameraId || data.cameraName || "-",
+        captureId: sessionId,
+        amount: data.paymentAmount || 0,
+      });
     } catch (e) {
       console.error("⚠️ Email send failed:", e.message);
     }
