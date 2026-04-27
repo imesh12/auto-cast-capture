@@ -357,7 +357,7 @@ function startWebApiServer(ctx) {
 
 
   async function ensureAuthTables() {
-  await dbRun(`
+    await dbRun(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
@@ -369,7 +369,7 @@ function startWebApiServer(ctx) {
     )
   `)
 
-  await dbRun(`
+    await dbRun(`
     CREATE TABLE IF NOT EXISTS auth_tokens (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -379,7 +379,7 @@ function startWebApiServer(ctx) {
     )
   `)
 
-  await dbRun(`
+    await dbRun(`
     CREATE TABLE IF NOT EXISTS user_cameras (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -388,39 +388,39 @@ function startWebApiServer(ctx) {
     )
   `)
 
-  const columns = await dbAll(`PRAGMA table_info(users)`)
-  const names = columns.map(c => c.name)
+    const columns = await dbAll(`PRAGMA table_info(users)`)
+    const names = columns.map(c => c.name)
 
-  async function addColumn(name, sql) {
-    if (!names.includes(name)) {
-      await dbRun(`ALTER TABLE users ADD COLUMN ${name} ${sql}`)
+    async function addColumn(name, sql) {
+      if (!names.includes(name)) {
+        await dbRun(`ALTER TABLE users ADD COLUMN ${name} ${sql}`)
+      }
+    }
+
+    await addColumn("password_hash", "TEXT")
+    await addColumn("role", "TEXT DEFAULT 'admin'")
+    await addColumn("enabled", "INTEGER DEFAULT 1")
+    await addColumn("created_at", "TEXT")
+    await addColumn("updated_at", "TEXT")
+
+    // Initial admin setup is handled centrally in app.js
+  }
+
+  ensureAuthTables().catch(err => {
+    console.error("ensureAuthTables error:", err)
+  })
+
+  function ensureCameraTimelapseFolder(camera) {
+    try {
+      const folder = getCameraFolder(camera)
+      fs.mkdirSync(folder, { recursive: true })
+      console.log("Camera timelapse folder ensured:", folder)
+      return folder
+    } catch (err) {
+      console.warn("Camera timelapse folder create warning:", err.message)
+      return ""
     }
   }
-
-  await addColumn("password_hash", "TEXT")
-  await addColumn("role", "TEXT DEFAULT 'admin'")
-  await addColumn("enabled", "INTEGER DEFAULT 1")
-  await addColumn("created_at", "TEXT")
-  await addColumn("updated_at", "TEXT")
-
-  // Initial admin setup is handled centrally in app.js
-}
-
-ensureAuthTables().catch(err => {
-  console.error("ensureAuthTables error:", err)
-})
-
-function ensureCameraTimelapseFolder(camera) {
-  try {
-    const folder = getCameraFolder(camera)
-    fs.mkdirSync(folder, { recursive: true })
-    console.log("Camera timelapse folder ensured:", folder)
-    return folder
-  } catch (err) {
-    console.warn("Camera timelapse folder create warning:", err.message)
-    return ""
-  }
-}
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -853,15 +853,15 @@ function ensureCameraTimelapseFolder(camera) {
           )
 
           const folder = ensureCameraTimelapseFolder({
-          ...data,
-          id: result.lastID
-           })
+            ...data,
+            id: result.lastID
+          })
 
           return writeJson(res, 200, {
-          ok: true,
-          id: result.lastID,
-          folder
-        })
+            ok: true,
+            id: result.lastID,
+            folder
+          })
         } catch (e) {
           console.error("camera save error:", e)
           return writeJson(res, 500, { ok: false, error: e.message })
@@ -966,8 +966,8 @@ function ensureCameraTimelapseFolder(camera) {
           const folder = ensureCameraTimelapseFolder(data)
 
           return writeJson(res, 200, {
-          ok: true,
-          folder
+            ok: true,
+            folder
           })
         } catch (e) {
           console.error("camera update error:", e)
@@ -1979,8 +1979,7 @@ function ensureCameraTimelapseFolder(camera) {
             .map(name => {
               const fullPath = path.join(folder, name)
               const stat = fs.statSync(fullPath)
-              const parsedTime = fileTimeFromName(name)
-              const ts = parsedTime || stat.mtimeMs || 0
+              const ts = getImageTimestamp(fullPath, name) || stat.mtimeMs || 0
 
               return {
                 name,
