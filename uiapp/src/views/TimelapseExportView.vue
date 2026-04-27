@@ -80,7 +80,14 @@
             class="thumb"
             :class="{ selected: selected.includes(f.name) }"
           >
-            <img :src="withBase(f.url)" @click="toggleSelect(f.name)" />
+            <img
+              loading="lazy"
+              decoding="async"
+              width="100"
+              height="70"
+              :src="withBase(f.url)"
+              @click="previewImage(f)"
+            />
           </div>
 
           <div v-if="!files.length" class="empty-thumbs">
@@ -428,25 +435,6 @@ async function loadVideoProtected(url) {
   videoBlobUrl.value = await fetchProtectedBlobUrl(url)
 }
 
-async function loadThumbProtectedFiles() {
-  const updated = []
-
-  for (const file of files.value) {
-    try {
-      const blobUrl = await fetchProtectedBlobUrl(withBase(file.originalUrl || file.url))
-      updated.push({
-        ...file,
-        originalUrl: file.originalUrl || file.url,
-        url: blobUrl
-      })
-    } catch (e) {
-      console.warn("thumbnail protected load failed:", file.name, e)
-      updated.push(file)
-    }
-  }
-
-  files.value = updated
-}
 
 function refreshLatestPreview() {
   latestTick.value = Date.now()
@@ -466,6 +454,16 @@ function toggleSelect(name) {
   } else {
     selected.value.push(name)
   }
+}
+
+function previewImage(file) {
+  toggleSelect(file.name)
+  mode.value = "timelapse"
+
+  // cleanup previous blob (if any)
+  revokeObjectUrl(latestImageBlobUrl.value)
+
+  latestImageBlobUrl.value = withBase(file.url)
 }
 
 function speedLabel(v) {
@@ -613,14 +611,15 @@ async function loadFiles() {
       to: toMillis(to.value)
     })
 
+    // ✅ Direct assign (NO blob processing)
     files.value = data.files || []
-    await loadThumbProtectedFiles()
 
     if (files.value.length) {
       showToast("success", "読込完了", `${files.value.length} 枚の画像を読み込みました。`)
     } else {
       showToast("info", "画像なし", "指定期間に画像はありませんでした。")
     }
+
   } catch (e) {
     handleApiError(e, "読込失敗", "画像の読込に失敗しました。")
   }

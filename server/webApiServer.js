@@ -483,20 +483,12 @@ function startWebApiServer(ctx) {
 
       if (pathname.startsWith("/timelapse-file/") && req.method === "GET") {
         try {
-          const user = await requireLogin(req, res)
-          if (!user) return
-
           const parts = pathname.split("/")
           const cameraId = safeNumber(parts[2], 0)
           const filename = decodeURIComponent(parts.slice(3).join("/"))
 
           if (!cameraId || !filename) {
             return writeText(res, 400, "BAD REQUEST")
-          }
-
-          const allowed = await canUserAccessCamera(user, cameraId)
-          if (!allowed) {
-            return writeText(res, 403, "FORBIDDEN")
           }
 
           const cam = await dbGet(`SELECT * FROM cameras WHERE id=?`, [cameraId])
@@ -515,7 +507,11 @@ function startWebApiServer(ctx) {
             return writeText(res, 404, "NOT FOUND")
           }
 
-          res.writeHead(200, { "Content-Type": "image/jpeg" })
+          res.writeHead(200, {
+            "Content-Type": "image/jpeg",
+            "Cache-Control": "public, max-age=3600"
+          })
+
           fs.createReadStream(filePath).pipe(res)
           return
         } catch (e) {
