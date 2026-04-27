@@ -1,0 +1,4 @@
+mkdir -p data/timelapse data/exports data/tmp
+touch data/timelapse/.gitkeep
+touch data/exports/.gitkeep
+touch data/tmp/.gitkeep

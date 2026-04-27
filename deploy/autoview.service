@@ -1,0 +1,16 @@
+[Unit]
+Description=AutoView Timelapse API Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/opt/autoview
+Environment=NODE_ENV=production
+Environment=APP_MODE=timelapse
+Environment=PORT=8080
+ExecStart=/usr/bin/npm start
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

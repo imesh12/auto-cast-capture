@@ -1,0 +1,25 @@
+{
+  "name": "autoviewpro",
+  "version": "1.0.0",
+  "main": "server/app.js",
+  "scripts": {
+    "start": "node server/app.js",
+    "start:web": "node server/app.js",
+    "frontend:dev": "cd uiapp && npm run dev",
+    "frontend:build": "cd uiapp && npm run build",
+    "electron:start": "DISPLAY=:0 XAUTHORITY=/home/comworks/.Xauthority electron . --no-sandbox"
+  },
+  "devDependencies": {
+    "electron": "^40.8.5"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "leaflet": "^1.9.4",
+    "qrcode": "^1.5.4",
+    "sqlite3": "^5.0.2",
+    "vue-router": "^4.6.4"
+  }
+}
