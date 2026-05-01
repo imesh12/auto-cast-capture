@@ -1,5 +1,7 @@
 <template>
+
   <div class="page">
+    <Navbar />
     <div class="page-header">
       <div>
         <h2>タイムラプス管理</h2>
@@ -170,6 +172,7 @@
       <TimelapseExportView />
     </div>
   </div>
+  <Footer />
 </template>
 
 <script setup>
@@ -178,7 +181,8 @@ import { useRouter } from "vue-router"
 import api from "../api/api"
 import TimelapseView from "./TimelapseView.vue"
 import TimelapseExportView from "./TimelapseExportView.vue"
-
+import Navbar from "../components/Navbar.vue"
+import Footer from "../components/Footer.vue"
 const router = useRouter()
 
 const currentTab = ref("timelapse")
@@ -489,293 +493,354 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page{
-  min-height:calc(100vh - 60px);
-  background:#202020;
-  color:#fff;
-  padding:20px;
-  box-sizing:border-box;
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-body);
+  box-sizing: border-box;
 }
 
-.page-header{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:16px;
-  margin-bottom:18px;
+.page-header,
+.plugin-grid,
+.panel-switch,
+.panel {
+  width: min(1180px, calc(100% - 40px));
+  margin-left: auto;
+  margin-right: auto;
 }
 
-.sub{
-  margin:6px 0 0 0;
-  color:#c9c9c9;
-  font-size:14px;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-top: 24px;
+  margin-bottom: 18px;
+}
+
+.page-header h2,
+.panel h3 {
+  color: var(--text-heading);
+}
+
+.sub {
+  margin: 6px 0 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
 }
 
 .refresh-btn,
 .ghost-btn,
 .small-btn,
 .panel-switch button,
-.plugin-card{
-  cursor:pointer;
+.plugin-card {
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
 .refresh-btn,
 .ghost-btn,
 .panel-switch button,
-.small-btn{
-  border:none;
-  border-radius:8px;
-  padding:10px 14px;
+.small-btn {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
 }
 
-.refresh-btn{
-  background:#00bcd4;
-  color:#111;
-  font-weight:700;
+.refresh-btn {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
 }
 
-.header-actions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
+.refresh-btn:hover,
+.small-btn:hover,
+.ghost-btn:hover,
+.panel-switch button:hover {
+  background: var(--primary-hover);
+  color: #fff;
 }
 
-.plugin-grid{
-  display:grid;
-  grid-template-columns:repeat(2, minmax(0, 1fr));
-  gap:14px;
-  margin-bottom:18px;
+.refresh-btn:disabled,
+.ghost-btn:disabled,
+.small-btn:disabled,
+.panel-switch button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 
-.plugin-card{
-  display:flex;
-  align-items:center;
-  gap:14px;
-  text-align:left;
-  padding:18px;
-  border:1px solid #3e3e3e;
-  border-radius:12px;
-  background:#2b2b2b;
-  color:#fff;
+.header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-.plugin-card.active{
-  border-color:#00bcd4;
-  box-shadow:0 0 0 1px #00bcd4 inset;
+.plugin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
 }
 
-.plugin-icon{
-  font-size:30px;
-  width:48px;
-  text-align:center;
+.plugin-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-body);
+  box-shadow: var(--shadow-sm);
 }
 
-.plugin-title{
-  font-size:18px;
-  font-weight:700;
+.plugin-card.active {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary) inset, var(--shadow-sm);
 }
 
-.plugin-value{
-  margin-top:4px;
-  font-size:22px;
-  font-weight:700;
+.plugin-icon {
+  width: 48px;
+  color: var(--primary);
+  font-size: 30px;
+  text-align: center;
 }
 
-.plugin-desc{
-  margin-top:4px;
-  color:#c9c9c9;
-  font-size:13px;
+.plugin-title {
+  color: var(--text-heading);
+  font-size: 18px;
+  font-weight: 600;
 }
 
-.panel-switch{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-bottom:18px;
+.plugin-value {
+  margin-top: 4px;
+  color: var(--text-heading);
+  font-size: 22px;
+  font-weight: 600;
 }
 
-.panel-switch button{
-  background:#343434;
-  color:#fff;
+.plugin-desc {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
-.panel-switch button.active{
-  background:#00bcd4;
-  color:#111;
-  font-weight:700;
+.panel-switch {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
 }
 
-.panel{
-  background:#2b2b2b;
-  border:1px solid #3f3f3f;
-  border-radius:12px;
-  padding:18px;
+.panel-switch button {
+  background: var(--surface);
+  color: var(--text-body);
+  border: 1px solid var(--border);
 }
 
-.panel-header{
-  display:flex;
-  justify-content:space-between;
-  align-items:flex-start;
-  gap:16px;
-  margin-bottom:16px;
+.panel-switch button.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  font-weight: 600;
 }
 
-.ghost-btn{
-  background:#3a3a3a;
-  color:#fff;
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
 }
 
-.danger-ghost{
-  background:#7a2f2f;
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
-.stats-row{
-  display:grid;
-  grid-template-columns:repeat(3, minmax(0, 1fr));
-  gap:12px;
-  margin-bottom:18px;
+.ghost-btn {
+  background: var(--surface-alt);
+  color: var(--text-body);
+  border: 1px solid var(--border);
 }
 
-.stat-box{
-  background:#202020;
-  border:1px solid #444;
-  border-radius:10px;
-  padding:14px;
+.danger-ghost {
+  background: var(--error);
+  border-color: var(--error);
+  color: #fff;
 }
 
-.stat-label{
-  color:#cfcfcf;
-  font-size:13px;
-  margin-bottom:8px;
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
-.stat-value{
-  font-size:26px;
-  font-weight:700;
+.stat-box {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
 }
 
-.table-wrap{
-  overflow:auto;
+.stat-label {
+  color: var(--text-muted);
+  font-size: 13px;
+  margin-bottom: 8px;
 }
 
-.table{
-  width:100%;
-  border-collapse:collapse;
+.stat-value {
+  color: var(--text-heading);
+  font-size: 26px;
+  font-weight: 600;
+}
+
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
 .table th,
-.table td{
-  padding:12px 10px;
-  border-bottom:1px solid #444;
-  text-align:left;
-  vertical-align:top;
+.table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
 }
 
-.camera-name{
-  font-weight:700;
+.table th {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
-.camera-sub{
-  margin-top:4px;
-  color:#bdbdbd;
-  font-size:12px;
-  word-break:break-all;
+.table tr:last-child td {
+  border-bottom: none;
 }
 
-.error-cell{
-  max-width:220px;
-  word-break:break-word;
-  color:#ffd1d1;
-  font-size:12px;
+.camera-name {
+  color: var(--text-heading);
+  font-weight: 600;
 }
 
-.status-badge{
-  display:inline-block;
-  padding:6px 10px;
-  border-radius:999px;
-  font-size:12px;
-  font-weight:700;
+.camera-sub {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 12px;
+  word-break: break-all;
 }
 
-.status-badge.running{
-  background:#1f6f3c;
-  color:#fff;
+.error-cell {
+  max-width: 220px;
+  color: var(--error);
+  font-size: 12px;
+  word-break: break-word;
 }
 
-.status-badge.ok{
-  background:#1f6f3c;
-  color:#fff;
+.status-badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.status-badge.stopped{
-  background:#8f2f2f;
-  color:#fff;
+.status-badge.running,
+.status-badge.ok {
+  background: var(--success);
+  color: #fff;
 }
 
-.status-badge.idle{
-  background:#355c7d;
-  color:#fff;
+.status-badge.stopped,
+.status-badge.error {
+  background: var(--error);
+  color: #fff;
 }
 
-.status-badge.error{
-  background:#8f2f2f;
-  color:#fff;
+.status-badge.idle {
+  background: var(--primary-soft);
+  color: var(--primary-hover);
 }
 
-.action-row{
-  display:flex;
-  gap:8px;
-  flex-wrap:wrap;
+.action-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.small-btn{
-  background:#00bcd4;
-  color:#111;
-  font-weight:700;
-  padding:8px 12px;
+.small-btn {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  padding: 8px 12px;
 }
 
-.small-btn.ghost{
-  background:#555;
-  color:#fff;
+.small-btn.ghost {
+  background: var(--surface-alt);
+  color: var(--text-body);
+  border: 1px solid var(--border);
 }
 
-.small-btn.danger{
-  background:#b33434;
-  color:#fff;
+.small-btn.ghost:hover {
+  background: var(--primary-soft);
+  color: var(--primary-hover);
 }
 
-.empty-box{
-  padding:18px;
-  border:1px dashed #555;
-  border-radius:10px;
-  color:#d1d1d1;
-  background:#202020;
+.small-btn.danger {
+  background: var(--error);
+  color: #fff;
 }
 
-.inline-view{
-  margin-top:20px;
-  border-top:1px solid #444;
-  padding-top:20px;
+.small-btn.danger:hover,
+.danger-ghost:hover {
+  background: #dc2626;
 }
 
-.export-panel{
-  padding-bottom:24px;
+.empty-box {
+  padding: 18px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  background: var(--surface-alt);
 }
 
-@media (max-width: 1100px){
-  .plugin-grid{
-    grid-template-columns:1fr;
+.inline-view {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 20px;
+}
+
+.export-panel {
+  padding-bottom: 24px;
+}
+
+@media (max-width: 1100px) {
+  .plugin-grid {
+    grid-template-columns: 1fr;
   }
 
-  .stats-row{
-    grid-template-columns:1fr;
+  .stats-row {
+    grid-template-columns: 1fr;
   }
 
   .panel-header,
-  .page-header{
-    flex-direction:column;
-    align-items:stretch;
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

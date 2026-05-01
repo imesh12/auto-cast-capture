@@ -1,257 +1,203 @@
 <template>
-  <div class="export-layout">
-    <div class="left-col">
-      <div class="card">
-        <h3>🖼 プレビュー</h3>
-
-        <div class="field">
-          <label class="field-label">カメラ</label>
-          <select v-model.number="selectedCameraId" class="input" @change="onCameraChange">
-            <option v-for="c in cameras" :key="c.id" :value="c.id">
-              {{ c.name }}
-            </option>
-          </select>
-        </div>
-
-        <div class="toolbar">
-          <button @click="mode = 'timelapse'" :class="{ activeToolbar: mode === 'timelapse' }">
-            最新静止画
-          </button>
-          <button @click="mode = 'video'" :class="{ activeToolbar: mode === 'video' }">
-            動画
-          </button>
-          <button @click="refreshLatestPreview">更新</button>
-          <button @click="fullscreen">全画面</button>
-        </div>
-
-        <div class="viewer">
-          <img v-if="mode === 'timelapse' && latestImageBlobUrl" :src="latestImageBlobUrl" />
-         <video
-  v-else-if="mode === 'video' && (videoBlobUrl || videoUrl)"
-  :src="videoBlobUrl || videoUrl"
-  controls
-  autoplay
-  playsinline
-  @error="onVideoError"
-/>
-          <div v-else class="empty-view">プレビューがありません</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>🖼 素材一覧</h3>
-
-        <div class="field">
-          <label class="field-label">期間指定</label>
-          <div class="datetime-row">
-            <input type="datetime-local" v-model="from" class="input" />
-            <input type="datetime-local" v-model="to" class="input" />
-          </div>
-        </div>
-
-        <div class="field compact-row">
-          <button class="secondary-btn" @click="loadFiles" :disabled="!selectedCameraId">
-            画像を読込
-          </button>
-
-          <button
-            class="primary-btn"
-            @click="downloadImagesZip"
-            :disabled="!selectedCameraId || downloadingImages"
-          >
-            <span v-if="downloadingImages" class="btn-spinner"></span>
-            {{ downloadingImages ? "ZIP作成中..." : "⬇ ZIPダウンロード" }}
-          </button>
-        </div>
-
-        <div class="thumb-toolbar">
-          <div class="thumb-count">
-            読込画像: <strong>{{ files.length }}</strong> 枚
-          </div>
-          <div class="thumb-count">
-            選択中: <strong>{{ selected.length }}</strong> 枚
-          </div>
-        </div>
-
-        <div class="thumbs">
-          <div
-            v-for="f in files"
-            :key="f.name"
-            class="thumb"
-            :class="{ selected: selected.includes(f.name) }"
-          >
-            <img
-              loading="lazy"
-              decoding="async"
-              width="100"
-              height="70"
-              :src="withBase(f.url)"
-              @click="previewImage(f)"
-            />
-          </div>
-
-          <div v-if="!files.length" class="empty-thumbs">
-            指定期間の画像はまだありません。
-          </div>
-        </div>
-
-        <button class="danger-btn" @click="deleteFiles" :disabled="!selected.length">
-          🗑 選択画像を削除
-        </button>
-      </div>
+  <Navbar />
+  <main class="page-body">
+    <!-- page heading -->
+    <div class="heading">
+      <h2>ライブラリー</h2>
+      <p class="sub">保存済み画像を期間指定で読み込み、MP4 動画として書き出せます。</p>
     </div>
+    <!-- page body -->
+    <div class="export-layout">
 
-    <div class="right-col">
-      <div class="card">
-        <div class="bottom-top">
-          <div>
-            <label class="field-label">動画生成</label>
-            <div class="helper-text">
-              期間・速度を指定して MP4 動画を生成します。
+      <div class="left-col">
+        <div class="card">
+          <!-- card operation wrapper -->
+          <div class="card-operation-wrapper">
+            <!-- camera selector dropdown -->
+            <div class="field">
+              <select v-model="selectedCameraId" class="input camera-select"
+                :class="{ 'is-placeholder': !selectedCameraId }" @change="onCameraChange">
+                <option :value="null" disabled>カメラを選択</option>
+                <option v-for="c in cameras" :key="c.id" :value="c.id">
+                  {{ c.name }}
+                </option>
+              </select>
+            </div>
+            <!-- tools -->
+            <div class="toolbar">
+              <button @click="mode = 'timelapse'" :class="{ activeToolbar: mode === 'timelapse' }">
+                最新静止画
+              </button>
+              <button @click="mode = 'video'" :class="{ activeToolbar: mode === 'video' }">
+                動画
+              </button>
+              <button @click="refreshLatestPreview">更新</button>
+              <button @click="fullscreen">全画面</button>
             </div>
           </div>
 
-          <div class="preview-actions">
-            <button
-              class="primary-btn create-video-btn"
-              @click="preview"
-              :disabled="!selectedCameraId || isGenerating"
-            >
-              <span v-if="isGenerating" class="btn-spinner"></span>
-              {{ isGenerating ? "生成中..." : "🎬 生成して再生" }}
+          <!-- camera preview -->
+          <div class="viewer">
+            <img v-if="mode === 'timelapse' && latestImageBlobUrl" :src="latestImageBlobUrl" />
+            <video v-else-if="mode === 'video' && (videoBlobUrl || videoUrl)" :src="videoBlobUrl || videoUrl" controls
+              autoplay playsinline @error="onVideoError" />
+            <div v-else class="empty-view">プレビューがありません</div>
+          </div>
+        </div>
+
+        <!-- picture holder -->
+        <div class="card">
+          <h4 class="pic-holder-heading">素材一覧</h4>
+          <p class="helper-text">期間指定</p>
+          <div class="picture-operation">
+            <div class="field">
+              <div class="datetime-row">
+                <input type="datetime-local" v-model="from" class="input" />
+                <input type="datetime-local" v-model="to" class="input" />
+              </div>
+            </div>
+            <div class="field compact-row">
+              <button class="primary-btn" @click="loadFiles" :disabled="!selectedCameraId">
+                画像を読込
+              </button>
+            </div>
+          </div>
+
+
+
+
+          <div class="thumb-toolbar">
+           <div class="thumb-label">
+              <div class="thumb-count">
+                読込画像: <strong>{{ files.length }}</strong> 枚
+              </div>
+              <div class="thumb-count">
+                選択中: <strong>{{ selected.length }}</strong> 枚
+              </div>
+            </div>
+          </div>
+          <!-- thumbnails -->
+          <div class="thumbs">
+            <div v-for="f in files" :key="f.name" class="thumb" :class="{ selected: selected.includes(f.name) }">
+              <img decoding="async" width="100" height="70" :src="withBase(f.url)"
+                @click="previewImage(f)" />
+            </div>
+
+            <div v-if="!files.length" class="empty-thumbs">
+              指定期間の画像はまだありません。
+            </div>
+          </div>
+          <div class="thumb-actions">
+            <button class="primary-btn" @click="downloadImagesZip" :disabled="!selectedCameraId || downloadingImages">
+              <span v-if="downloadingImages" class="btn-spinner"></span>
+              {{ downloadingImages ? "ZIP作成中..." : "ZIPダウンロード" }}
             </button>
-
-            <a
-              v-if="videoUrl && !isGenerating"
-              :href="videoUrl"
-              download
-              class="icon-link download-link-strong"
-              title="ダウンロード"
-            >
-              ⬇
-            </a>
+            <button class="danger-btn" @click="deleteFiles" :disabled="!selected.length">
+              削除
+            </button>
           </div>
         </div>
+      </div>
 
-        <div class="video-controls-grid">
-          <div class="mini-card">
-            <div class="mini-label">FPS</div>
-            <input type="number" v-model.number="fps" class="small-input" min="1" max="120" />
-          </div>
-
-          <div class="mini-card speed-card">
-            <div class="mini-label">再生速度</div>
-            <div class="speed-chip-row">
-              <button
-                type="button"
-                class="speed-chip"
-                :class="{ active: speed === 2 }"
-                @click="speed = 2"
-              >
-                2x
-              </button>
-              <button
-                type="button"
-                class="speed-chip"
-                :class="{ active: speed === 4 }"
-                @click="speed = 4"
-              >
-                4x
-              </button>
-              <button
-                type="button"
-                class="speed-chip"
-                :class="{ active: speed === 8 }"
-                @click="speed = 8"
-              >
-                8x
-              </button>
-              <button
-                type="button"
-                class="speed-chip"
-                :class="{ active: speed === 16 }"
-                @click="speed = 16"
-              >
-                16x
-              </button>
-              <button
-                type="button"
-                class="speed-chip"
-                :class="{ active: speed === 32 }"
-                @click="speed = 32"
-              >
-                32x
-              </button>
-              <button
-                type="button"
-                class="speed-chip"
-                :class="{ active: speed === 64 }"
-                @click="speed = 64"
-              >
-                64x
-              </button>
+      <div class="right-col">
+        <div class="card">
+          <div class="right-top-mini-card">
+            <!-- card heading -->
+            <div class="card-head">
+              <div class="card-hd-lb">
+                <label class="field-label">動画生成</label>
+                <div class="helper-text">
+                  期間・速度を指定して MP4 動画を生成します。
+                </div>
+              </div>
+              <div class="preview-actions">
+                <button class="primary-btn create-video-btn" @click="preview"
+                  :disabled="!selectedCameraId || isGenerating">
+                  <span v-if="isGenerating" class="btn-spinner"></span>
+                  {{ isGenerating ? "生成中..." : "生成" }}
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div v-if="isGenerating || progressPercent > 0" class="progress-card">
-          <div class="progress-top-line">
-            <span>{{ progressStage || "処理中..." }}</span>
-            <span>{{ progressPercent }}%</span>
-          </div>
+            <div v-if="isGenerating || progressPercent > 0" class="progress-section">
+              <div class="progress-bar">
+                <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+              </div>
+              <div class="progress-summary">
+                <span class="progress-stage-text">{{ progressStage || "処理中..." }}</span>
+                <span class="progress-percent">{{ progressPercent }}%</span>
+              </div>
+            </div>
 
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
-          </div>
-        </div>
+            <div v-if="generateError" class="video-generate-error">
+              {{ generateError }}
+            </div>
 
-        <div v-if="generatedInfo && !isGenerating" class="last-generated-card">
-          <div class="last-generated-info">
-            <div class="last-generated-title">最新生成動画</div>
-            <div class="last-generated-meta">
-              {{ speedLabel(generatedInfo.speed) }} / FPS {{ generatedInfo.fps }}
+            <!-- fps selector -->
+            <div class="video-controls-grid">
+              <div class="mini-card">
+                <div class="mini-label">FPS</div>
+                <input type="number" v-model.number="fps" class="small-input" min="1" max="120" />
+              </div>
+
+              <div class="mini-card speed-card">
+                <div class="mini-label">再生速度</div>
+                <div class="speed-chip-row">
+                  <button type="button" class="speed-chip" :class="{ active: speed === 2 }" @click="speed = 2">
+                    2x
+                  </button>
+                  <button type="button" class="speed-chip" :class="{ active: speed === 4 }" @click="speed = 4">
+                    4x
+                  </button>
+                  <button type="button" class="speed-chip" :class="{ active: speed === 8 }" @click="speed = 8">
+                    8x
+                  </button>
+                  <button type="button" class="speed-chip" :class="{ active: speed === 16 }" @click="speed = 16">
+                    16x
+                  </button>
+                  <button type="button" class="speed-chip" :class="{ active: speed === 32 }" @click="speed = 32">
+                    32x
+                  </button>
+                  <button type="button" class="speed-chip" :class="{ active: speed === 64 }" @click="speed = 64">
+                    64x
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="last-generated-actions">
-            <button class="small-dark-btn" @click="mode = 'video'">再生</button>
-            <a :href="generatedInfo.url" download class="small-blue-btn">ダウンロード</a>
-          </div>
-        </div>
+          <!-- second box -->
+          <div class="right-bottom-mini-card">
+            <div class="right-bottom-mini-card-heading">
+              <span class="history-title">生成履歴</span>
+            </div>
 
-        <div v-if="generateError" class="video-generate-error">
-          {{ generateError }}
-        </div>
+            <div class="video-history-list">
+              <div v-for="v in videos" :key="v.name" :class="{ active: videoUrl === withBase(v.url) }"
+                class="video-row smart-video-row">
+                <div class="video-main">
+                  <div class="video-icon"><FontAwesomeIcon :icon="['far', 'file-video']" /></div>
+                  <div class="video-texts">
+                    <div class="video-name">{{ formatName(v.name) }}</div>
+                    <div class="video-sub">MP4 / タイムラプス動画</div>
+                  </div>
+                </div>
+                <div class="video-actions">
+                  <button class="icon-btn-dark" @click="playVideo(v)" title="再生"><FontAwesomeIcon :icon="['fas', 'play']" /></button>
+                  <a class="icon-btn-blue" :href="withBase(v.url)" download title="ダウンロード"><FontAwesomeIcon :icon="['fas', 'download']" /></a>
+                  <button class="icon-btn-red" @click="deleteVideo(v.name)" title="削除"><FontAwesomeIcon :icon="['fas', 'trash-can']" /></button>
+                </div>
+              </div>
 
-        <h4 class="history-title">生成履歴</h4>
-
-        <div
-          v-for="v in videos"
-          :key="v.name"
-          :class="{ active: videoUrl === withBase(v.url) }"
-          class="video-row smart-video-row"
-        >
-          <div class="video-main">
-            <div class="video-icon">🎞</div>
-            <div class="video-texts">
-              <div class="video-name">{{ formatName(v.name) }}</div>
-              <div class="video-sub">MP4 / タイムラプス動画</div>
+              <div v-if="!videos.length" class="video-empty">
+                生成済み動画はまだありません。
+              </div>
             </div>
           </div>
-
-          <div class="video-actions">
-            <button class="icon-btn-dark" @click="playVideo(v)" title="再生">▶</button>
-            <a class="icon-btn-blue" :href="withBase(v.url)" download title="ダウンロード">⬇</a>
-            <button class="icon-btn-red" @click="deleteVideo(v.name)" title="削除">🗑</button>
-          </div>
-        </div>
-
-        <div v-if="!videos.length" class="video-empty">
-          生成済み動画はまだありません。
         </div>
       </div>
     </div>
-  </div>
+  </main>
 
   <transition name="toast-fade">
     <div v-if="toast.show" class="toast" :class="`toast--${toast.type}`">
@@ -289,11 +235,15 @@
       </div>
     </div>
   </transition>
+  <Footer />
 </template>
 
 <script setup>
 import { ref, onMounted, onBeforeUnmount } from "vue"
 import api from "../api/api"
+import Navbar from "../components/Navbar.vue"
+import Footer from "../components/Footer.vue"
+
 
 const baseUrl =
   window.autoview?.apiUrl ||
@@ -324,7 +274,7 @@ const downloadingImages = ref(false)
 const progressPercent = ref(0)
 const progressStage = ref("")
 const generateError = ref("")
-const generatedInfo = ref(null)
+const abortController = ref(null)
 
 const toast = ref({ show: false, type: "success", title: "", message: "" })
 const confirmState = ref({ show: false, title: "", message: "", resolver: null })
@@ -347,7 +297,7 @@ function revokeObjectUrl(url) {
   if (!url || !url.startsWith("blob:")) return
   try {
     URL.revokeObjectURL(url)
-  } catch (_) {}
+  } catch (_) { }
   objectUrls = objectUrls.filter(u => u !== url)
 }
 
@@ -355,7 +305,7 @@ function cleanupObjectUrls() {
   for (const url of objectUrls) {
     try {
       URL.revokeObjectURL(url)
-    } catch (_) {}
+    } catch (_) { }
   }
   objectUrls = []
   latestImageBlobUrl.value = ""
@@ -466,11 +416,6 @@ function previewImage(file) {
   latestImageBlobUrl.value = withBase(file.url)
 }
 
-function speedLabel(v) {
-  if (Number(v) === 1) return "等倍"
-  return `${v}倍速`
-}
-
 function formatName(name) {
   const m = String(name || "").match(/(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2})/)
   if (!m) return name
@@ -560,8 +505,18 @@ function validateRange() {
     return false
   }
 
-  if (toMillis(from.value) >= toMillis(to.value)) {
+  const fromTime = toMillis(from.value)
+  const toTime = toMillis(to.value)
+
+  if (fromTime >= toTime) {
     showToast("warning", "期間エラー", "終了日時は開始日時より後にしてください。")
+    return false
+  }
+
+  // Check if range is too large (more than 24 hours)
+  const durationHours = (toTime - fromTime) / (1000 * 60 * 60)
+  if (durationHours > 24) {
+    showToast("warning", "期間が長すぎます", "24時間以内の期間を選択してください。")
     return false
   }
 
@@ -648,7 +603,7 @@ async function downloadImagesZip() {
       try {
         const data = await res.json()
         errorMessage = data.error || errorMessage
-      } catch (_) {}
+      } catch (_) { }
       throw new Error(errorMessage)
     }
 
@@ -721,20 +676,29 @@ async function deleteVideo(name) {
 async function preview() {
   if (!validateRange()) return
 
+  // Prevent multiple clicks
+  if (isGenerating.value) return
+
   generateError.value = ""
-  generatedInfo.value = null
   isGenerating.value = true
   progressPercent.value = 0
   progressStage.value = "開始中..."
+  abortController.value = new AbortController()
   startFakeProgress()
 
   try {
-    const data = await api.getTimelapsePreview({
+    const params = {
       camera_id: selectedCameraId.value,
       from: toMillis(from.value),
       to: toMillis(to.value),
       fps: fps.value,
       speed: speed.value
+    }
+
+    showToast("info", "生成開始", "動画生成を開始しました。しばらくお待ちください。")
+
+    const data = await api.getTimelapsePreview(params, {
+      signal: abortController.value.signal
     })
 
     if (!data.ok || !data.url) {
@@ -754,32 +718,35 @@ async function preview() {
 
     mode.value = "video"
 
-    generatedInfo.value = {
-      url: videoBlobUrl.value || withBase(data.url),
-      originalUrl: withBase(data.url),
-      name: data.name || data.filename || "timelapse.mp4",
-      fps: Number(fps.value),
-      speed: Number(speed.value),
-      from: from.value,
-      to: to.value
-    }
-
     await loadVideos()
     showToast("success", "生成完了", "動画の生成が完了しました。")
   } catch (e) {
+    if (e.name === 'AbortError') {
+      showToast("info", "キャンセル", "動画生成をキャンセルしました。")
+      return
+    }
+
     console.error("preview error:", e)
 
     if (isAuthError(e)) {
       handleApiError(e)
     } else {
-      generateError.value = e.message || "動画生成に失敗しました。"
-      showToast("error", "生成失敗", generateError.value)
+      const errorMsg = e.message || "動画生成に失敗しました。"
+      generateError.value = errorMsg
+      showToast("error", "生成失敗", errorMsg)
     }
   } finally {
+    abortController.value = null
     stopFakeProgress()
     setTimeout(() => {
       isGenerating.value = false
     }, 300)
+  }
+}
+
+function cancelPreview() {
+  if (abortController.value) {
+    abortController.value.abort()
   }
 }
 
@@ -826,25 +793,74 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.export-layout {
-  display:grid;
-  grid-template-columns: 1.05fr 1fr;
-  gap:18px;
+@import "../styles/theme.css";
+
+/* ===== LAYOUT ===== */
+.page-body {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 16px;
 }
 
+.heading {
+  padding: 16px 0 0;
+}
+
+.heading h2 {
+  font-weight: 600;
+}
+
+.sub {
+  color: var(--text-muted);
+}
+
+.export-layout {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 20px;
+  padding: 16px 0;
+}
+
+/* ===== COLUMNS ===== */
 .left-col,
 .right-col {
-  display:flex;
-  flex-direction:column;
-  gap:18px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
+/* ===== CARD ===== */
 .card {
-  border: 1px solid #333;
-  border-radius: 14px;
-  padding: 14px;
-  background: #181818;
-  color:#fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: 0.2s;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* ===== FIELD ===== */
+.card-operation-wrapper {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.card-operation-wrapper .field {
+  flex: 1;
+  max-width: 320px;
+  margin-bottom: 0;
+}
+
+.card-operation-wrapper .toolbar {
+  flex: 0 0 auto;
+  margin: 0;
 }
 
 .field {
@@ -852,369 +868,448 @@ onBeforeUnmount(() => {
 }
 
 .field-label {
-  display: block;
-  font-weight: 700;
-  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--text-heading);
+  margin-bottom: 6px;
 }
 
+.pic-holder-heading {
+  font-weight: 600;
+  margin-top: 0px;
+  margin-bottom: 0px;
+}
+
+.picture-operation {
+  display: flex;
+  justify-content: space-between;
+}
+
+.helper-text {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+.mini-label {
+  font-size: 14px;
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.preview-actions {
+  align-self: flex-start;
+}
+
+.progress-section {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 1px;
+  background: var(--surface-alt);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+.progress-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.progress-stage-text,
+.progress-percent {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.progress-percent {
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.video-generate-error {
+  margin-top: 12px;
+}
+
+.create-video-btn {
+  font-size: 14px;
+}
+
+.right-bottom-mini-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0;
+  margin-top: 18px;
+  height: 690px;
+  overflow: hidden;
+}
+
+.right-bottom-mini-card-heading {
+  padding: 16px;
+  background-color: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+}
+
+.video-history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.video-empty {
+  margin: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.history-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.progress-stage-text {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.progress-top-line {
+  font-size: 12px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 2px;
+  background: var(--surface-alt);
+  border-radius: 1px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+.cancel-btn {
+  margin-top: 8px;
+  padding: 6px 12px;
+  background: var(--error);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+/* ===== INPUT ===== */
 .input {
   width: 100%;
-  min-height: 36px;
+  height: 36px;
   padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid #444;
-  background: #1a1a1a;
-  color: #fff;
-  box-sizing: border-box;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-body);
+  font-size: 14px;
 }
 
-.small-input {
-  width: 80px;
-  min-height: 36px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid #444;
-  background: #1a1a1a;
-  color: #fff;
-  box-sizing: border-box;
+.camera-select {
+  min-width: 220px;
+  padding-right: 36px;
+
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  background: var(--surface);
+  color: var(--text-body);
+
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+
+  cursor: pointer;
+  transition: 0.2s;
+
+  /* Custom arrow */
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' fill='%236b7280' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.7a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clip-rule='evenodd'/%3E%3C/svg%3E");
+
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+
 }
 
+/* Hover */
+.camera-select:hover {
+  border-color: var(--primary);
+}
+
+.camera-select.is-placeholder {
+  color: var(--text-muted);
+}
+
+.camera-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+/* Fix dropdown menu look (browser override) */
+.camera-select option {
+  color: var(--text-body);
+  background: #ffffff;
+}
+
+/* ===== TOOLBAR ===== */
 .toolbar {
-  padding: 10px 0 12px;
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  margin: 10px 0 14px;
 }
 
 .toolbar button {
-  border: 1px solid #444;
-  background: #1a1a1a;
-  color: #fff;
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
   padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
   cursor: pointer;
 }
 
 .toolbar button.activeToolbar {
-  background: #0a84ff;
-  border-color: #0a84ff;
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
 }
 
+/* ===== VIEWER ===== */
 .viewer {
-  background: black;
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+  aspect-ratio: 16 / 9;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 420px;
-  border-radius: 12px;
-  overflow:hidden;
+  overflow: hidden;
 }
 
-.viewer video,
-.viewer img {
+.viewer img,
+.viewer video {
   width: 100%;
-  height: 420px;
+  height: 100%;
   object-fit: contain;
 }
 
 .empty-view {
-  color: #999;
+  color: var(--text-muted);
 }
 
+/* ===== DATE ROW ===== */
 .datetime-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
 
-.compact-row {
-  display: flex;
-  gap: 12px;
-  align-items: end;
-  flex-wrap: wrap;
+/* ===== BUTTONS ===== */
+.primary-btn {
+  background: var(--primary);
+  color: #fff;
 }
 
-.thumb-toolbar {
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
-  margin-bottom:12px;
-  color:#cfcfcf;
-  font-size:13px;
+.secondary-btn {
+  background: var(--surface-alt);
+  color: var(--text-body);
 }
 
-.thumbs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.thumb {
-  width: 100px;
-  height: 70px;
-  border: 2px solid transparent;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #000;
-}
-
-.thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  cursor: pointer;
-}
-
-.thumb.selected {
-  border: 2px solid #ff4747;
-  box-shadow: 0 0 0 1px #ff4747 inset;
-}
-
-.helper-text {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #aaa;
-}
-
-.bottom-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: end;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-
-.preview-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.danger-btn {
+  background: var(--error);
+  margin-top: 12px;
 }
 
 .primary-btn,
 .secondary-btn,
-.danger-btn,
-.danger-btn-inline {
-  border: none;
-  border-radius: 10px;
-  padding: 10px 14px;
-  cursor: pointer;
-  color: #fff;
-}
-
-.primary-btn {
-  background: #0a84ff;
-}
-
-.secondary-btn {
-  background: #444;
-}
-
-.danger-btn,
-.danger-btn-inline {
-  background: #8a2b2b;
-}
-
 .danger-btn {
+  border: none;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+/* ===== THUMBNAILS ===== */
+.thumbs {
+  background-color: var(--surface-alt);
+  width: 100%;
+  max-height: 204px;
+  padding: 8px;
+  border: solid 1px var(--border);
+  border-radius: 6px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 8px;
+  overflow-y: auto;
+}
+.thumb-label{
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 16px 6px 0px 6px;
+}
+.thumb-count{
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.empty-thumbs{
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 90px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.thumb {
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 2px solid transparent;
+  background: var(--surface-alt);
+  aspect-ratio: 16 / 9;
+}
+
+.thumb img {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+}
+
+.thumb.selected {
+  border-color: var(--error);
+}
+
+.thumb-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
   margin-top: 12px;
 }
 
-.create-video-btn {
-  min-width: 180px;
-  font-weight: 700;
+.thumb-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
+.thumb-actions .danger-btn {
+  margin-top: 0;
+}
+
+/* ===== VIDEO SECTION ===== */
 .video-controls-grid {
   display: grid;
-  grid-template-columns: 120px 1fr;
+  grid-template-columns: 100px 1fr;
   gap: 12px;
-  margin-bottom: 14px;
+}
+.small-input{
+  border: solid 1px var(--border);
+  border-radius: 3px;
+  padding: 3px;
+  width: 100%;
 }
 
 .mini-card {
-  border: 1px solid #333;
-  background: #1b1b1b;
-  border-radius: 14px;
-  padding: 12px;
-}
-
-.mini-label {
-  font-size: 12px;
-  color: #aaa;
-  margin-bottom: 8px;
-}
-
-.speed-card {
-  min-width: 0;
-}
-
-.speed-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  border-radius: var(--radius);
+  padding: 10px;
 }
 
 .speed-chip {
-  border: 1px solid #3a3a3a;
-  background: #232323;
-  color: #fff;
   border-radius: 999px;
-  padding: 8px 14px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
   cursor: pointer;
+}
+
+.speed-chip {
+  margin-right: 16px;
 }
 
 .speed-chip.active {
-  background: #0a84ff;
-  border-color: #0a84ff;
-}
-
-.progress-card {
-  margin-bottom: 14px;
-  border: 1px solid #2e4f70;
-  background: #162331;
-  border-radius: 14px;
-  padding: 12px;
-}
-
-.progress-top-line {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  color: #d7ebff;
-  margin-bottom: 8px;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 12px;
-  border-radius: 999px;
-  background: #283746;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #0a84ff, #63b3ff);
-  transition: width 0.25s ease;
-}
-
-.last-generated-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid #2d5d32;
-  background: #132016;
-  border-radius: 14px;
-  padding: 12px;
-  margin-bottom: 14px;
-}
-
-.last-generated-title {
-  font-weight: 700;
-  color: #d9ffd9;
-  margin-bottom: 4px;
-}
-
-.last-generated-meta {
-  font-size: 12px;
-  color: #a9d8a9;
-}
-
-.last-generated-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.small-dark-btn,
-.small-blue-btn {
-  border: none;
-  border-radius: 10px;
-  padding: 8px 12px;
+  background: var(--primary);
   color: #fff;
-  cursor: pointer;
-  text-decoration: none;
-  font-size: 13px;
+
 }
 
-.small-dark-btn {
-  background: #2a2a2a;
-}
-
-.small-blue-btn {
-  background: #0a84ff;
-}
-
-.video-generate-error {
-  border: 1px solid #7a2f2f;
-  background: #2a1717;
-  border-radius: 12px;
-  padding: 10px 12px;
-  color: #ffb6b6;
-  margin-bottom: 14px;
-  font-size: 13px;
-}
-
-.history-title {
-  margin: 14px 0 10px;
-}
-
-.video-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 8px;
-  padding: 6px 8px;
-  border-radius: 8px;
-  background: #1c1c1c;
-}
-
-.video-row.active {
-  background: #0f375c;
-}
-
+/* ===== VIDEO ROW ===== */
 .smart-video-row {
+  display: flex;
   justify-content: space-between;
-  border: 1px solid #2d2d2d;
-  padding: 10px 12px;
-  margin-bottom: 10px;
+  align-items: center;
+  border: 1px solid var(--border);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  margin-bottom: 8px;
 }
 
 .video-main {
   display: flex;
-  align-items: center;
   gap: 10px;
-  min-width: 0;
-  flex: 1;
+  align-items: center;
 }
 
 .video-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: #272727;
+  width: 40px;
+  height: 40px;
+  background: var(--primary-soft);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.video-texts {
-  min-width: 0;
-}
-
 .video-name {
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .video-sub {
   font-size: 12px;
-  color: #a9a9a9;
-  margin-top: 2px;
+  color: var(--text-muted);
 }
 
 .video-actions {
@@ -1224,61 +1319,30 @@ onBeforeUnmount(() => {
 
 .icon-btn-dark,
 .icon-btn-blue,
-.icon-btn-red,
-.icon-link,
-.download-link-strong {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  display: inline-flex;
+.icon-btn-red {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex;
   align-items: center;
   justify-content: center;
-  text-decoration: none;
-  color: #fff;
-  border: none;
   cursor: pointer;
+  border: none;
 }
 
 .icon-btn-dark {
-  background: #2d2d2d;
+  background: var(--surface-alt);
 }
 
-.icon-btn-blue,
-.download-link-strong {
-  background: #0a84ff;
+.icon-btn-blue {
+  background: var(--primary);
+  color: #fff;
+  text-decoration: none;
 }
 
 .icon-btn-red {
-  background: #a93226;
-}
-
-.download-link-strong {
-  font-size: 18px;
-}
-
-.video-empty,
-.empty-thumbs {
-  color: #aaa;
-  font-size: 13px;
-  padding: 10px 0;
-}
-
-.btn-spinner {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  margin-right: 8px;
-  border: 2px solid rgba(255,255,255,0.3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  vertical-align: -2px;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  background: var(--error);
+  color: #fff;
 }
 
 .toast {
@@ -1289,12 +1353,11 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 14px 14px;
+  padding: 14px;
   border-radius: 16px;
   color: #fff;
   z-index: 99999;
   box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
-  backdrop-filter: blur(10px);
 }
 
 .toast--success {
@@ -1320,7 +1383,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.18);
+  background: rgba(255, 255, 255, 0.18);
   font-weight: 800;
   flex: 0 0 34px;
 }
@@ -1374,11 +1437,11 @@ onBeforeUnmount(() => {
 
 .confirm-modal {
   width: min(460px, 100%);
-  background: #171717;
-  color: #fff;
-  border: 1px solid #333;
+  background: var(--surface);
+  color: var(--text-body);
+  border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.22);
   overflow: hidden;
 }
 
@@ -1388,12 +1451,12 @@ onBeforeUnmount(() => {
 
 .confirm-title {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
+  color: var(--text-heading);
 }
 
 .confirm-body {
   padding: 0 18px 18px;
-  color: #d4d4d4;
   line-height: 1.6;
   white-space: pre-line;
 }
@@ -1403,6 +1466,15 @@ onBeforeUnmount(() => {
   justify-content: flex-end;
   gap: 10px;
   padding: 14px 18px 18px;
+}
+
+.danger-btn-inline {
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  cursor: pointer;
+  background: var(--error);
+  color: #fff;
 }
 
 .modal-fade-enter-active,
@@ -1415,6 +1487,7 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
+/* ===== RESPONSIVE ===== */
 @media (max-width: 1100px) {
   .export-layout {
     grid-template-columns: 1fr;
@@ -1422,34 +1495,34 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 700px) {
-  .datetime-row,
-  .video-controls-grid {
-    grid-template-columns: 1fr;
+  .card-operation-wrapper {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .bottom-top,
-  .last-generated-card,
+  .card-operation-wrapper .field {
+    max-width: none;
+  }
+
+  .card-operation-wrapper .toolbar {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .picture-operation,
+  .thumb-toolbar,
   .smart-video-row {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .video-actions,
-  .last-generated-actions,
-  .preview-actions,
-  .confirm-actions {
-    flex-wrap: wrap;
+  .datetime-row,
+  .video-controls-grid {
+    grid-template-columns: 1fr;
   }
 
-  .thumb-toolbar {
-    flex-direction:column;
-    align-items:flex-start;
-  }
-
-  .toast {
-    left: 12px;
-    right: 12px;
-    width: auto;
+  .bottom-top {
+    align-items: stretch;
   }
 }
 </style>

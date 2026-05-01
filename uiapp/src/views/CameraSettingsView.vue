@@ -2,6 +2,8 @@
 import { ref, onMounted, computed } from "vue"
 import { useRouter } from "vue-router"
 import api from "../api/api"
+import Navbar from "../components/Navbar.vue"
+
 
 const router = useRouter()
 
@@ -23,6 +25,7 @@ const newPassword = ref("")
 const newCustomStreamPath = ref("")
 const newCaptureMode = ref(DEFAULT_CAPTURE_MODE)
 const newSnapshotUrl = ref("")
+const showAddCam = ref(false)
 
 function safePort(v, fallback = DEFAULT_RTSP_PORT) {
   const n = Number(v)
@@ -112,6 +115,20 @@ function buildRtspUrl({
   }
 
   return `rtsp://${auth}${host}:${finalPort}${finalPath}`
+}
+
+function getBaseRtspUrl(url) {
+  try {
+    const parsed = new URL(url)
+    const auth = parsed.username
+      ? `${parsed.username}${parsed.password ? `:${parsed.password}` : ""}@`
+      : ""
+    return `${parsed.protocol}//${auth}${parsed.host}`
+  } catch {
+    if (!url) return ""
+    const parts = url.split("/")
+    return parts.slice(0, 3).join("/")
+  }
 }
 
 function buildSnapshotUrl({
@@ -440,17 +457,6 @@ async function deleteCamera(cam) {
   }
 }
 
-async function logout() {
-  try {
-    await api.logout()
-  } catch (error) {
-    console.warn("logout error:", error)
-  }
-
-  api.clearSession()
-  await router.replace("/login")
-}
-
 onMounted(async () => {
   if (!api.isLoggedIn()) {
     await router.replace("/login")
@@ -470,23 +476,26 @@ onMounted(async () => {
 </script>
 
 <template>
+
+  <Navbar />
   <div class="view-root">
+    <div>
+    </div>
     <div class="page-header">
-  <div>
-    <h2>Camera Settings</h2>
-    <p class="sub">Add and manage cameras from the web UI.</p>
-  </div>
+      <div>
+        <h2>カメラ管理</h2>
+        <p class="sub">Web UIからカメラの追加・管理を行います。</p>
+      </div>
 
-  <div class="header-actions">
-    <button class="refresh-btn" :disabled="loading" @click="loadCameras">
-      {{ loading ? "Loading..." : "Refresh" }}
-    </button>
-
-    <button class="logout-btn" @click="logout">
-      Logout
-    </button>
-  </div>
-</div>
+      <div class="header-actions">
+        <button @click="showAddCam = !showAddCam" class="add-camera-btn">
+          新カメラ登録
+        </button>
+        <button class="refresh-btn" :disabled="loading" @click="loadCameras" title="Refresh">
+          <FontAwesomeIcon :icon="['fas', 'arrow-rotate-right']" />
+        </button>
+      </div>
+    </div>
 
     <div class="table-wrap">
       <table>
@@ -534,12 +543,7 @@ onMounted(async () => {
             </td>
 
             <td>
-              <input
-                v-model="cam.port"
-                type="number"
-                placeholder="554"
-                style="width: 90px"
-              />
+              <input v-model="cam.port" type="number" placeholder="554" style="width: 90px" />
             </td>
 
             <td>
@@ -563,75 +567,87 @@ onMounted(async () => {
 
             <td class="rtsp-cell">
               {{
-                buildRtspUrl({
-                  ip: cam.camera_ip,
-                  port: cam.port,
-                  username: cam.username,
-                  password: cam.password,
-                  streamType: cam.stream_type,
-                  customStreamPath: cam.stream_path
-                })
+                getBaseRtspUrl(
+                  buildRtspUrl({
+                    ip: cam.camera_ip,
+                    port: cam.port,
+                    username: cam.username,
+                    password: cam.password,
+                    streamType: cam.stream_type,
+                    customStreamPath: cam.stream_path
+                  })
+                )
               }}
             </td>
 
             <td>
-              <button
-                class="save-btn"
-                :disabled="savingIds.has(cam.id)"
-                @click="saveCamera(cam)"
-              >
+              <button class="save-btn" :disabled="savingIds.has(cam.id)" @click="saveCamera(cam)">
                 {{ savingIds.has(cam.id) ? "Saving..." : "SAVE" }}
               </button>
             </td>
 
             <td>
-              <button
-                class="delete-btn"
-                :disabled="savingIds.has(cam.id)"
-                @click="deleteCamera(cam)"
-              >
-                DELETE
+              <button class="delete-btn" :disabled="savingIds.has(cam.id)" @click="deleteCamera(cam)">
+                <FontAwesomeIcon :icon="['fas', 'trash-can']" />
               </button>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-
+    <!-- add camera -->
+     <div class="add-cam-wrapper" v-show="showAddCam">
     <div class="add-card">
-      <h3>Add Camera</h3>
+      <h3>カメラ管理</h3>
 
       <div class="add">
-        <input v-model="newCameraName" placeholder="Camera Name" />
+        <div class="input-cam-info">
+          <div>
+        <label class="input-label">カメラ名</label>
+          <input v-model="newCameraName" placeholder="例：カメラ1" style="width: 245px" />
+          </div>
+<div>
+  <label class="input-label">カメラブランド</label>
+          <select v-model="newStreamType"  style="width: 245px">
+            <option value="axis">AXIS</option>
+            <option value="hikvision">HIKVISION</option>
+            <option value="dahua">DAHUA</option>
+            <option value="generic">GENERIC</option>
+            <option value="custom">CUSTOM</option>
+          </select>
+</div>
 
-        <select v-model="newStreamType">
-          <option value="axis">AXIS</option>
-          <option value="hikvision">HIKVISION</option>
-          <option value="dahua">DAHUA</option>
-          <option value="generic">GENERIC</option>
-          <option value="custom">CUSTOM</option>
-        </select>
 
-        <input v-model="newCameraIp" placeholder="Camera IP" style="width: 170px" />
-        <input v-model="newPort" type="number" placeholder="RTSP Port" style="width: 90px" />
-        <input v-model="newUsername" placeholder="Username" style="width: 150px" />
-        <input
-          v-model="newPassword"
-          type="password"
-          placeholder="Password"
-          style="width: 150px"
-        />
+        </div>
+        <div class="input-ip-port">
+          <div>
+            <label class="input-label">カメラIP</label>
+            <input v-model="newCameraIp" placeholder="192.168.1.2" style="width: 400px" />
+          </div>
+          <div>
+            <label class="input-label">カメラIP</label>
+                      <input v-model="newPort" type="number" placeholder="RTSP Port" style="width: 90px" />
+          </div>
 
-        <select v-model="newCaptureMode">
+        </div>
+        <div class="input-user-pass">
+          <div>
+            <label class="input-label">ユーザー</label>
+            <input v-model="newUsername" placeholder="root" style="width: 245px" />
+          </div>
+          <div>
+            <label class="input-label">パスワード</label>
+          <input v-model="newPassword" type="password" placeholder="********" style="width: 245px" />
+          </div>
+          
+        </div>
+        <label class="input-label">撮影モード</label>
+        <select v-model="newCaptureMode"  style="width: 500px; margin-bottom: 16px;" >
           <option value="snapshot">Snapshot First</option>
           <option value="rtsp">RTSP Only</option>
         </select>
 
-        <input
-          v-model="newSnapshotUrl"
-          placeholder="Snapshot URL (optional override)"
-          style="width: 280px"
-        />
+        <!-- <input v-model="newSnapshotUrl" placeholder="Snapshot URL (optional override)" style="width: 280px;margin-bottom: 16px;" /> -->
 
         <div class="preview-box">
           <div class="preview-label">Snapshot URL</div>
@@ -647,30 +663,29 @@ onMounted(async () => {
           </div>
         </div>
 
-        <button :disabled="!newCameraName || !newCameraIp" @click="addCamera">
-          ＋ Add Camera
+        <button :disabled="!newCameraName || !newCameraIp" @click="addCamera" class="confirm-btn">
+          確定
         </button>
+        <button @click="showAddCam = false" class="cancel-btn">
+          キャンセル
+        </button>
+
       </div>
+    </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-html,
-body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  background: #202020;
-}
+@import "../styles/theme.css";
 
 .view-root {
   width: 100%;
   min-height: calc(100vh - 60px);
-  background: #202020;
-  color: white;
+  color: var(--text-body);
   padding: 20px;
   box-sizing: border-box;
+  margin-top: 64px;
 }
 
 .page-header {
@@ -683,12 +698,13 @@ body {
 
 .sub {
   margin-top: 6px;
-  color: #cfcfcf;
+  color: var(--text-muted);
   font-size: 14px;
 }
 
 .refresh-btn {
-  background: #3a3a3a;
+  background: var(--surface-alt);
+  color: var(--text-body);
 }
 
 .table-wrap {
@@ -697,48 +713,72 @@ body {
 
 table {
   min-width: 1550px;
+  width: 100%;
   border-collapse: collapse;
+  background: var(--surface);
 }
 
 td,
 th {
-  border: 1px solid #444;
-  padding: 6px;
+  border: 1px solid var(--border);
+  padding: 10px;
   text-align: center;
   vertical-align: middle;
+  color: var(--text-body);
+}
+
+th {
+  font-size: 14px;
+}
+
+td {
+  font-size: 12px;
 }
 
 input {
-  padding: 6px;
-  border-radius: 4px;
-  border: 1px solid #555;
-  background: #111;
-  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-body);
   width: 100%;
   box-sizing: border-box;
 }
 
 select {
-  padding: 6px;
-  border-radius: 4px;
-  border: 1px solid #555;
-  background: #111;
-  color: white;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-body);
   min-width: 120px;
 }
 
-button {
-  padding: 6px 10px;
-  border-radius: 4px;
+.add-camera-btn, .confirm-btn {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
   border: none;
-  background: #444;
-  color: white;
+  background: var(--primary);
+  color: #fff;
   cursor: pointer;
 }
-
-button:hover {
-  background: #666;
+.add-camera-btn:hover {
+  background: rgba(37, 99, 235);
 }
+.confirm-btn:hover{
+  background: rgba(37, 99, 235);
+}
+.refresh-btn{
+    padding: 10px 14px;
+  border-radius: var(--radius-sm);
+   border: none;
+   background-color: var(--text-light-grey);
+   color: var(--text-body);
+}
+
+/* button:hover {
+   background: rgb(37, 99, 235);
+} */
 
 button:disabled {
   opacity: 0.65;
@@ -746,65 +786,119 @@ button:disabled {
 }
 
 .save-btn {
-  background: #2f7d32;
+  background: var(--success);
+  color: #fff;
 }
 
 .save-btn:hover {
-  background: #3d9a41;
+  background: #059669;
 }
 
 .delete-btn {
-  background: #a93232;
+  background: var(--error);
+  color: #fff;
 }
 
 .delete-btn:hover {
-  background: #c54242;
+  background: #f87171;
 }
-
+.cancel-btn{
+  color: #fd0e0e;
+  font-size: 14px;
+  margin: 0px auto 0px auto;
+  background-color: none;
+}
+.add-cam-wrapper{
+   position: relative;
+}
 .add-card {
-  margin-top: 20px;
+  width: 38%;
+  border: solid 1px var(--border);
+  border-radius: 8px;
+  background-color: #fff;
+  padding: 16px;
+  position: absolute;
+  left: 50%;
+  margin-top: 80px;
+  transform: translate(-50%, -50%);
+  z-index: 100;
 }
 
 .add {
   margin-top: 10px;
+}
+
+.add-card h3 {
+  margin-bottom: 14px;
+  font-size: 18px;
+  color: var(--text-heading);
+}
+.input-label{
+  font-size: 13px;
+  color: var(--text-body);
+}
+input::placeholder{
+  font-size: 12px;
+}
+.input-cam-info {
   display: flex;
   gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
+  margin-bottom: 16px;
+}
+.input-ip-port{
+    display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.input-user-pass{
+    display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.add button {
+  grid-column: 1 / -1;
+  justify-self: start;
 }
 
 .rtsp-cell {
-  min-width: 360px;
-  max-width: 360px;
-  word-break: break-all;
+  width: 1%;
+  white-space: nowrap;
   font-size: 12px;
-  color: #8fd3ff;
+  color: var(--primary);
 }
 
 .preview-box {
-  min-width: 380px;
-  max-width: 560px;
-  padding: 8px 10px;
-  background: #111;
-  border: 1px solid #555;
-  border-radius: 4px;
-  color: #8fd3ff;
+  min-width: 440px;
+  max-width: 100%;
+  padding: 12px 14px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-body);
   font-size: 12px;
-  word-break: break-all;
+  overflow: hidden;
+  margin-bottom: 16px;
 }
 
 .preview-label {
   font-size: 11px;
-  color: #cfcfcf;
+  color: var(--text-muted);
   margin-bottom: 4px;
 }
 
 .preview-value {
-  color: #8fd3ff;
+  color: var(--text-body);
+  display: inline-block;
+  max-width: 320px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .empty-row {
-  color: #bbbbbb;
+  color: var(--text-muted);
   padding: 18px;
 }
 
@@ -812,13 +906,5 @@ button:disabled {
   display: flex;
   gap: 10px;
   align-items: center;
-}
-
-.logout-btn {
-  background: #8a2b2b;
-}
-
-.logout-btn:hover {
-  background: #b23a3a;
 }
 </style>
