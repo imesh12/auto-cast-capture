@@ -17,9 +17,6 @@
       <router-link to="/manage-event" class="nav-link" active-class="active">
         タイムラプス管理
       </router-link>
-      <router-link to="/timelapse" class="nav-link" active-class="active">
-       タイムラプス登録
-      </router-link>
     </nav>
 
     <div class="nav-right">

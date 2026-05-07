@@ -1,8 +1,23 @@
 <template>
+  <div class="panel-title">
+    <div>
+      <h3><span class="title-icon">
+          <FontAwesomeIcon :icon="['fas', 'hourglass-half']" />
+        </span>{{ isCreateMode ? "タイムラプス新規作成" : "タイムラプス設定" }}</h3>
+      <p>
+        スケジュール保存後はまだ撮影開始されません。保存後に「開始」ボタンを押すと有効になります。
+      </p>
+    </div>
+    <div>
+      <button class="cancel-btn" @click="cancelTimelapseEdit">
+        <FontAwesomeIcon :icon="['fas', 'xmark']" />
+      </button>
+    </div>
+
+  </div>
   <div class="timelapse-page">
     <div class="single-column">
       <div class="panel">
-        <h3>{{ isCreateMode ? "📡 タイムラプス新規作成" : "📡 タイムラプス設定" }}</h3>
 
         <div class="field">
           <label class="field-label">カメラ</label>
@@ -16,22 +31,31 @@
             使用可能なカメラがありません。既存スケジュールを削除すると再利用できます。
           </div>
         </div>
+      </div>
 
-        <div class="helper-box">
-          スケジュール保存後はまだ撮影開始されません。保存後に「開始」ボタンを押すと有効になります。
-        </div>
 
-        <div class="schedule-card">
-          <h3>🗓 スケジュール設定</h3>
-
-          <div class="field">
-            <label class="field-label">1. 撮影日</label>
-
-            <div class="preset-row">
-              <button type="button" class="chip" :class="{ active: dayMode === 'everyday' }" @click="applyDayMode('everyday')">毎日</button>
-              <button type="button" class="chip" :class="{ active: dayMode === 'weekdays' }" @click="applyDayMode('weekdays')">平日</button>
-              <button type="button" class="chip" :class="{ active: dayMode === 'weekends' }" @click="applyDayMode('weekends')">土日</button>
-              <button type="button" class="chip" :class="{ active: dayMode === 'custom' }" @click="applyDayMode('custom')">カスタム</button>
+      <div class="schedule-card">
+        <h4>
+ スケジュール設定
+        </h4>
+        <!-- day selector -->
+        <div class="field">
+          <label class="field-label">撮影日</label>
+          <div class="day-select">
+            <div class="day-preset-controls">
+              <select
+                :value="dayMode"
+                class="input day-preset-select"
+                @change="applyDayMode($event.target.value)"
+              >
+                <option value="custom">カスタム</option>
+                <option value="everyday">毎日</option>
+                <option value="weekdays">平日</option>
+                <option value="weekends">土日</option>
+              </select>
+              <button type="button" class="day-reset-btn" @click="resetDaySelection">
+                <FontAwesomeIcon :icon="['fas', 'arrow-rotate-right']" />
+              </button>
             </div>
 
             <div class="days-grid">
@@ -39,17 +63,32 @@
                 <input type="checkbox" :value="d.value" v-model="selectedDays" @change="dayMode = 'custom'">
                 <span>{{ d.label }}</span>
               </label>
+
             </div>
+
+            
           </div>
+        </div>
 
-          <div class="field">
-            <label class="field-label">2. 撮影時間</label>
+        <!-- time selector -->
+        <div class="field">
+          <label class="field-label">撮影時間</label>
 
-            <div class="preset-row">
-              <button type="button" class="chip" :class="{ active: timeMode === 'allDay' }" @click="applyTimeMode('allDay')">終日</button>
-              <button type="button" class="chip" :class="{ active: timeMode === 'custom' }" @click="applyTimeMode('custom')">時間指定</button>
+          <div class="time-select">
+            <!-- time selector left col -->
+            <div class="time-mode-field">
+              <label>撮影時間を指定</label>
+              <select
+                :value="timeMode"
+                class="input time-mode-select"
+                @change="applyTimeMode($event.target.value)"
+              >
+                <option value="custom">時間指定</option>
+                <option value="allDay">終日</option>
+              </select>
             </div>
 
+            <!-- time selector right col -->
             <div class="time-row" :class="{ disabled: timeMode === 'allDay' }">
               <div class="time-box">
                 <label>開始</label>
@@ -73,133 +112,124 @@
                 </select>
               </div>
             </div>
+          </div>
 
-            <div class="helper-text">
-              ※ 現在は時間単位の設定です。30分単位が必要な場合は backend 側の拡張が必要です。
+          <div class="helper-text">
+            ※ 現在は時間単位の設定です。30分単位が必要な場合は backend 側の拡張が必要です。
+          </div>
+        </div>
+        <!-- mode selector -->
+        <div class="field mode-field">
+          <label class="field-label">撮影モード</label>
+          <select
+            v-model.number="cam.tl_interval"
+            class="input mode-select"
+            :class="{ 'is-placeholder': !Number(cam.tl_interval) }"
+          >
+            <option :value="0" disabled>モードを選択してください</option>
+            <option v-for="m in intervalOptions" :key="m.value" :value="m.value">
+              {{ m.label }}
+            </option>
+          </select>
+        </div>
+
+        <div class="summary-box">
+          <div class="summary-head">
+            <div class="summary-title">現在の設定</div>
+
+            <div class="mini-status-row">
+              <span v-if="hasUnsavedChanges" class="mini-badge warning">未保存</span>
+              <span v-else-if="hasTimelapseSchedule(cam)" class="mini-badge success">保存済み</span>
+              <span v-else class="mini-badge neutral">未設定</span>
             </div>
           </div>
 
-          <div class="field">
-            <label class="field-label">3. 撮影モード</label>
+          <div class="summary-text">{{ scheduleSummary }}</div>
+        </div>
 
-            <div class="mode-grid">
-              <label
-                v-for="m in intervalOptions"
-                :key="m.value"
-                class="mode-card"
-                :class="{ selected: Number(cam.tl_interval) === m.value }"
-              >
-                <input type="radio" :value="m.value" v-model.number="cam.tl_interval">
-                <span>{{ m.label }}</span>
-              </label>
+        <div class="action-row">
+          <button class="primary-btn" @click="save" :disabled="!selectedCameraId">
+            {{ isCreateMode ? "💾 作成して保存" : "💾 保存" }}
+          </button>
+
+          <button class="danger-btn-inline" @click="deleteTimelapseConfig"
+            :disabled="!selectedCameraId || isCreateModeWithoutSavedSchedule">
+            🗑 タイムラプス設定のみ削除
+          </button>
+        </div>
+      </div>
+
+      <div class="control-card">
+        <div class="status-grid">
+          <div class="status-block">
+            <div class="status-label">カメラ状態</div>
+            <div class="status-badge" :class="cameraStatusClass">
+              {{ cameraStatusText }}
             </div>
+            <div class="status-sub">{{ cameraStatusDescription }}</div>
           </div>
 
-          <div class="summary-box">
-            <div class="summary-head">
-              <div class="summary-title">現在の設定</div>
-
-              <div class="mini-status-row">
-                <span v-if="hasUnsavedChanges" class="mini-badge warning">未保存</span>
-                <span v-else-if="hasTimelapseSchedule(cam)" class="mini-badge success">保存済み</span>
-                <span v-else class="mini-badge neutral">未設定</span>
-              </div>
+          <div class="status-block">
+            <div class="status-label">サービス状態</div>
+            <div class="status-badge" :class="serviceStatusClass">
+              {{ serviceStatusText }}
             </div>
-
-            <div class="summary-text">{{ scheduleSummary }}</div>
-          </div>
-
-          <div class="action-row">
-            <button class="primary-btn" @click="save" :disabled="!selectedCameraId">
-              {{ isCreateMode ? "💾 作成して保存" : "💾 保存" }}
-            </button>
-
-            <button
-              class="danger-btn-inline"
-              @click="deleteTimelapseConfig"
-              :disabled="!selectedCameraId || isCreateModeWithoutSavedSchedule"
-            >
-              🗑 タイムラプス設定のみ削除
-            </button>
+            <div class="status-sub">
+              {{ isRunning ? "スケジューラーが稼働中です" : "スケジューラーは停止中です" }}
+            </div>
           </div>
         </div>
 
-        <div class="control-card">
-          <div class="status-grid">
-            <div class="status-block">
-              <div class="status-label">カメラ状態</div>
-              <div class="status-badge" :class="cameraStatusClass">
-                {{ cameraStatusText }}
-              </div>
-              <div class="status-sub">{{ cameraStatusDescription }}</div>
-            </div>
-
-            <div class="status-block">
-              <div class="status-label">サービス状態</div>
-              <div class="status-badge" :class="serviceStatusClass">
-                {{ serviceStatusText }}
-              </div>
-              <div class="status-sub">
-                {{ isRunning ? "スケジューラーが稼働中です" : "スケジューラーは停止中です" }}
-              </div>
-            </div>
+        <div class="status-detail-grid">
+          <div class="detail-card">
+            <div class="detail-label">最終撮影</div>
+            <div class="detail-value">{{ formatStatusDate(cam.tl_last_file_at) }}</div>
           </div>
 
-          <div class="status-detail-grid">
-            <div class="detail-card">
-              <div class="detail-label">最終撮影</div>
-              <div class="detail-value">{{ formatStatusDate(cam.tl_last_file_at) }}</div>
-            </div>
-
-            <div class="detail-card">
-              <div class="detail-label">最終実行</div>
-              <div class="detail-value">{{ formatStatusDate(cam.tl_last_run) }}</div>
-            </div>
-          </div>
-
-          <div v-if="cam.last_error" class="error-box">
-            <strong>最終エラー:</strong> {{ cam.last_error }}
-          </div>
-
-          <div class="control-actions">
-            <button class="start-btn" @click="startTL" :disabled="startDisabled">
-              ▶ 開始
-            </button>
-
-            <button class="stop-btn" @click="stopTL" :disabled="stopDisabled">
-              ⏹ 停止
-            </button>
+          <div class="detail-card">
+            <div class="detail-label">最終実行</div>
+            <div class="detail-value">{{ formatStatusDate(cam.tl_last_run) }}</div>
           </div>
         </div>
 
-        <div class="log-card">
-          <div class="log-header">
-            <h3>📜 動作ログ</h3>
-            <div class="log-count">{{ logs.length }} 件</div>
+        <div v-if="cam.last_error" class="error-box">
+          <strong>最終エラー:</strong> {{ cam.last_error }}
+        </div>
+
+        <div class="control-actions">
+          <button class="start-btn" @click="startTL" :disabled="startDisabled">
+            ▶ 開始
+          </button>
+
+          <button class="stop-btn" @click="stopTL" :disabled="stopDisabled">
+            ⏹ 停止
+          </button>
+        </div>
+      </div>
+
+      <div class="log-card">
+        <div class="log-header">
+          <h3>📜 動作ログ</h3>
+          <div class="log-count">{{ logs.length }} 件</div>
+        </div>
+
+        <div class="log-list">
+          <div v-for="l in logs" :key="`${l.time}-${l.msg}`" class="log-item" :class="logClassName(l.type)">
+            <div class="log-time">{{ formatLogTime(l.time) }}</div>
+            <div class="log-body">
+              <div class="log-type">{{ logLabel(l.type) }}</div>
+              <div class="log-message">{{ l.msg }}</div>
+            </div>
           </div>
 
-          <div class="log-list">
-            <div
-              v-for="l in logs"
-              :key="`${l.time}-${l.msg}`"
-              class="log-item"
-              :class="logClassName(l.type)"
-            >
-              <div class="log-time">{{ formatLogTime(l.time) }}</div>
-              <div class="log-body">
-                <div class="log-type">{{ logLabel(l.type) }}</div>
-                <div class="log-message">{{ l.msg }}</div>
-              </div>
-            </div>
-
-            <div v-if="!logs.length" class="log-empty">
-              ログはまだありません。
-            </div>
+          <div v-if="!logs.length" class="log-empty">
+            ログはまだありません。
           </div>
         </div>
       </div>
     </div>
   </div>
+
 
   <transition name="toast-fade">
     <div v-if="toast.show" class="toast" :class="`toast--${toast.type}`">
@@ -352,11 +382,11 @@ const scheduleSummary = computed(() => {
     timeMode.value === "allDay"
       ? "終日"
       : (
-          cam.value.tl_start_hour !== null &&
+        cam.value.tl_start_hour !== null &&
           cam.value.tl_end_hour !== null
-            ? `${formatHour(cam.value.tl_start_hour)}〜${formatHour(cam.value.tl_end_hour)}`
-            : "時間未設定"
-        )
+          ? `${formatHour(cam.value.tl_start_hour)}〜${formatHour(cam.value.tl_end_hour)}`
+          : "時間未設定"
+      )
 
   const modeText =
     intervalOptions.find(x => x.value === Number(cam.value.tl_interval))?.label || "モード未設定"
@@ -531,6 +561,11 @@ function applyDayMode(modeName) {
   }
 }
 
+function resetDaySelection() {
+  dayMode.value = "custom"
+  selectedDays.value = []
+}
+
 function applyTimeMode(modeName) {
   timeMode.value = modeName
 
@@ -583,6 +618,11 @@ function logClassName(type) {
   if (type === "info") return "log-info"
   if (type === "debug") return "log-debug"
   return ""
+}
+
+function cancelTimelapseEdit() {
+  localStorage.removeItem("timelapse_create_new")
+  router.push("/manage-event")
 }
 
 function isSelectedCameraTimelapseActive() {
@@ -1162,8 +1202,16 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+@import "../styles/theme.css";
+
 .timelapse-page {
-  width: 100%;
+  width: min(1180px, calc(100% - 40px));
+  margin: 0 auto;
+  padding-bottom: 48px;
+  color: var(--text-body);
+  --card-radius: 16px;
+  --control-height: 42px;
+  --control-radius: 9px;
 }
 
 .single-column {
@@ -1171,107 +1219,310 @@ onBeforeUnmount(() => {
 }
 
 .panel {
-  border: 1px solid #333;
-  padding: 12px;
-  background: #111;
-  color: #fff;
-  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 20px;
+  background: var(--surface);
+  color: var(--text-body);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-md);
+}
+
+.panel-title {
+  width: min(1180px, calc(100% - 40px));
+  margin: 24px auto 16px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  color: var(--text-body);
+}
+
+.panel-title h3 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.panel-title p {
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+
+.title-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 15px;
+  margin-right: 0;
+  flex: 0 0 34px;
 }
 
 .field {
-  margin-bottom: 14px;
+  margin-bottom: 20px;
+}
+
+.field:last-child {
+  margin-bottom: 0;
 }
 
 .field-label {
   display: block;
+  font-size: 14px;
   font-weight: 700;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
+  color: var(--text-heading);
+}
+
+.day-select {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.day-preset-controls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  flex: 1 1 330px;
+  min-width: 280px;
+  max-width: 430px;
+}
+
+.day-preset-select {
+  min-width: 0;
+}
+
+.day-reset-btn {
+  width: var(--control-height);
+  height: var(--control-height);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: #fff;
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0;
+  transition: color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.day-reset-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.day-reset-btn:hover {
+  color: var(--primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .input {
   width: 100%;
-  min-height: 36px;
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid #444;
-  background: #1a1a1a;
-  color: #fff;
+  min-height: var(--control-height);
+  padding: 0 14px;
+  border-radius: var(--control-radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-body);
   box-sizing: border-box;
+  font-size: 14px;
+  line-height: var(--control-height);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+select.input {
+  appearance: none;
+  padding-right: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' fill='%236b7280' viewBox='0 0 20 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.7a.75.75 0 111.06 1.06l-4.24 4.25a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+}
+
+.input::placeholder {
+  color: var(--text-placeholder);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
 }
 
 .helper-box {
-  border: 1px solid #2b4e77;
-  background: #17283a;
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--primary-soft);
+  border-radius: var(--radius-sm);
   padding: 10px 12px;
   font-size: 13px;
-  color: #cfe6ff;
+  color: var(--primary-hover);
   margin: 10px 0 16px;
 }
 
 .schedule-card,
 .control-card,
 .log-card {
-  border: 1px solid #333;
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 18px;
-  background: #181818;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  padding: 20px;
+  margin-bottom: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.schedule-card {
+  margin-top: 16px;
+}
+
+.schedule-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 18px;
+  color: var(--text-heading);
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .preset-row {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 0;
 }
 
 .chip {
-  border: 1px solid #555;
-  background: #222;
-  color: #fff;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  color: var(--text-body);
   border-radius: 999px;
   padding: 8px 14px;
   cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
+.chip:hover,
 .chip.active {
-  background: #0a84ff;
-  border-color: #0a84ff;
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
 }
 
 .days-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(7, 38px);
+  justify-content: end;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
 }
 
 .day-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: #222;
-  border: 1px solid #333;
-  border-radius: 10px;
-  padding: 8px 10px;
+  justify-content: center;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-body);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  width: 40px;
+  height: 38px;
+  padding: 0;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  user-select: none;
+}
+
+.day-chip input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.day-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary-hover);
+}
+
+.day-chip:has(input:checked) {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.time-select {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.time-mode-field {
+  flex: 1 1 520px;
+  min-width: 240px;
+}
+
+.time-mode-field label,
+.time-box label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .time-row {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
+  align-items: flex-end;
   gap: 10px;
-  align-items: end;
+  flex: 0 0 auto;
 }
 
-.time-box label {
-  display: block;
-  margin-bottom: 6px;
+.time-mode-select {
+  min-width: 0;
+}
+
+.time-box {
+  width: 148px;
 }
 
 .time-separator {
-  align-self: center;
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--control-height);
+  padding: 0 2px;
   font-size: 18px;
-  opacity: 0.8;
+  color: var(--text-muted);
 }
 
 .disabled {
@@ -1281,37 +1532,34 @@ onBeforeUnmount(() => {
 .helper-text {
   margin-top: 8px;
   font-size: 12px;
-  color: #aaa;
+  color: var(--text-muted);
 }
 
-.mode-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+.mode-select {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 40px 0 14px;
+  border-radius: var(--control-radius);
+  border-color: var(--border);
+  background-color: var(--surface);
+  color: var(--text-body);
+  font-size: 14px;
+  line-height: var(--control-height);
+  appearance: none;
+  box-shadow: none;
 }
 
-.mode-card {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #333;
-  background: #222;
-  border-radius: 12px;
-  padding: 10px 12px;
-  cursor: pointer;
-}
-
-.mode-card.selected {
-  border-color: #0a84ff;
-  background: #17314d;
+.mode-select.is-placeholder,
+.mode-select option:disabled {
+  color: var(--text-placeholder);
 }
 
 .summary-box {
-  border: 1px solid #2f4f2f;
-  background: #132213;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
   border-radius: 12px;
-  padding: 12px;
-  margin-top: 12px;
+  padding: 14px 16px;
+  margin-top: 4px;
 }
 
 .summary-head {
@@ -1323,12 +1571,15 @@ onBeforeUnmount(() => {
 }
 
 .summary-title {
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: 0;
+  color: var(--text-heading);
 }
 
 .summary-text {
-  color: #d7ffd7;
+  color: var(--text-body);
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .mini-status-row {
@@ -1343,32 +1594,32 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   border: 1px solid transparent;
 }
 
 .mini-badge.success {
-  background: #173d1f;
-  color: #8cffad;
-  border-color: #2d7d42;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--success);
+  border-color: rgba(16, 185, 129, 0.25);
 }
 
 .mini-badge.warning {
-  background: #4d4212;
-  color: #ffe08a;
-  border-color: #8f7a1e;
+  background: rgba(245, 158, 11, 0.14);
+  color: var(--warning);
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 .mini-badge.neutral {
-  background: #2e2e2e;
-  color: #ddd;
-  border-color: #555;
+  background: var(--surface);
+  color: var(--text-muted);
+  border-color: var(--border);
 }
 
 .action-row {
   display: flex;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 16px;
   flex-wrap: wrap;
 }
 
@@ -1377,36 +1628,86 @@ onBeforeUnmount(() => {
 .start-btn,
 .stop-btn,
 .test-btn,
-.danger-btn-inline {
-  border: none;
-  border-radius: 10px;
-  padding: 10px 14px;
+.danger-btn-inline,
+.cancel-btn {
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 0 16px;
   cursor: pointer;
-  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .primary-btn {
-  background: #0a84ff;
+  background: var(--primary);
+  color: #fff;
 }
 
 .secondary-btn {
-  background: #444;
+  background: var(--surface-alt);
+  color: var(--text-body);
+  border: 1px solid var(--border);
 }
 
 .start-btn {
-  background: #0a84ff;
+  background: var(--primary);
+  color: #fff;
 }
 
 .stop-btn {
-  background: #c0392b;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.22);
+  color: var(--error);
 }
 
 .test-btn {
-  background: #555;
+  background: var(--text-muted);
 }
 
 .danger-btn-inline {
-  background: #8a2b2b;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.22);
+  color: var(--error);
+}
+
+.cancel-btn {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--error);
+  color: #fff;
+  padding: 0;
+  flex: 0 0 40px;
+}
+
+.cancel-btn:hover {
+  background: #dc2626;
+  color: #fff;
+}
+
+.primary-btn:hover,
+.start-btn:hover {
+  background: var(--primary-hover);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.secondary-btn:hover {
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.stop-btn:hover,
+.danger-btn-inline:hover {
+  background: var(--error);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .start-btn:disabled,
@@ -1414,100 +1715,108 @@ onBeforeUnmount(() => {
 .primary-btn:disabled,
 .secondary-btn:disabled,
 .test-btn:disabled,
-.danger-btn-inline:disabled {
+.danger-btn-inline:disabled,
+.cancel-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+  filter: grayscale(0.15);
 }
 
 .status-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
 
 .status-detail-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
 
 .status-block,
 .detail-card {
-  background: #202020;
-  border: 1px solid #333;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
+  padding: 14px;
 }
 
 .status-label,
 .detail-label {
-  color: #bbb;
+  color: var(--text-muted);
   font-size: 12px;
   margin-bottom: 8px;
 }
 
 .detail-value {
   font-size: 14px;
-  color: #fff;
+  font-weight: 700;
+  color: var(--text-heading);
 }
 
 .status-badge {
-  display: inline-block;
-  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 10px;
   border-radius: 999px;
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 12px;
   margin-bottom: 6px;
 }
 
 .status-badge.running {
-  background: #173d1f;
-  color: #8cffad;
-  border: 1px solid #2d7d42;
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.28);
 }
 
 .status-badge.ok {
-  background: #173d1f;
-  color: #8cffad;
-  border: 1px solid #2d7d42;
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.28);
 }
 
 .status-badge.capturing {
-  background: #4d4212;
-  color: #ffe08a;
-  border: 1px solid #8f7a1e;
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.28);
 }
 
 .status-badge.hold {
-  background: #21364f;
-  color: #9dd1ff;
-  border: 1px solid #36628f;
+  background: var(--primary-soft);
+  color: var(--primary-hover);
+  border: 1px solid var(--primary-soft);
 }
 
 .status-badge.stopped {
-  background: #3c1c1c;
-  color: #ffaaaa;
-  border: 1px solid #8d3f3f;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.22);
 }
 
 .status-badge.neutral {
-  background: #2e2e2e;
-  color: #ddd;
-  border: 1px solid #555;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
 
 .status-sub {
-  color: #aaa;
+  color: var(--text-muted);
   font-size: 13px;
 }
 
 .error-box {
-  border: 1px solid #7a2f2f;
-  background: #2a1717;
-  border-radius: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: var(--radius-sm);
   padding: 10px 12px;
-  color: #ffb6b6;
+  color: var(--error);
   margin-bottom: 12px;
   font-size: 13px;
   word-break: break-word;
@@ -1526,67 +1835,93 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
 }
 
+.log-header h3 {
+  color: var(--text-heading);
+  font-size: 16px;
+  font-weight: 700;
+}
+
 .log-count {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-alt);
+  padding: 0 9px;
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-muted);
 }
 
 .log-list {
-  max-height: 260px;
+  max-height: 250px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  padding-right: 4px;
 }
 
 .log-item {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: 156px 1fr;
   gap: 10px;
-  padding: 10px;
+  align-items: start;
+  padding: 8px 10px;
   border-radius: 10px;
-  background: #222;
-  border: 1px solid #333;
+  background: #fff;
+  border: 1px solid var(--border);
 }
 
 .log-time {
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  white-space: nowrap;
 }
 
 .log-type {
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border-radius: 999px;
+  padding: 0 8px;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  font-size: 11px;
   font-weight: 700;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 
 .log-message {
   font-size: 13px;
+  color: var(--text-body);
   word-break: break-word;
 }
 
 .log-error {
-  border-color: #7a2f2f;
-  background: #2a1717;
+  border-color: rgba(239, 68, 68, 0.22);
+  background: rgba(239, 68, 68, 0.04);
 }
 
 .log-warn {
-  border-color: #8a6a20;
-  background: #2d2616;
+  border-color: rgba(245, 158, 11, 0.24);
+  background: rgba(245, 158, 11, 0.05);
 }
 
 .log-info {
-  border-color: #2e4f70;
-  background: #182532;
+  border-color: rgba(59, 130, 246, 0.18);
+  background: rgba(59, 130, 246, 0.04);
 }
 
 .log-debug {
-  border-color: #4b4b4b;
-  background: #202020;
+  border-color: var(--border);
+  background: var(--surface);
 }
 
 .log-empty {
-  color: #aaa;
+  color: var(--text-muted);
   font-size: 13px;
   padding: 10px 0;
 }
@@ -1630,7 +1965,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255,255,255,0.18);
+  background: rgba(255, 255, 255, 0.18);
   font-weight: 800;
   flex: 0 0 34px;
 }
@@ -1684,11 +2019,11 @@ onBeforeUnmount(() => {
 
 .confirm-modal {
   width: min(460px, 100%);
-  background: #171717;
-  color: #fff;
-  border: 1px solid #333;
+  background: var(--surface);
+  color: var(--text-body);
+  border: 1px solid var(--border);
   border-radius: 18px;
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.22);
   overflow: hidden;
 }
 
@@ -1698,12 +2033,13 @@ onBeforeUnmount(() => {
 
 .confirm-title {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
+  color: var(--text-heading);
 }
 
 .confirm-body {
   padding: 0 18px 18px;
-  color: #d4d4d4;
+  color: var(--text-body);
   line-height: 1.6;
   white-space: pre-line;
 }
@@ -1726,8 +2062,56 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 700px) {
-  .days-grid,
-  .mode-grid,
+  .panel-title,
+  .timelapse-page {
+    width: min(100% - 24px, 1180px);
+  }
+
+  .panel-title {
+    align-items: flex-start;
+    padding: 16px;
+  }
+
+  .day-select {
+    align-items: stretch;
+  }
+
+  .day-preset-controls {
+    max-width: none;
+    min-width: 0;
+  }
+
+  .days-grid {
+    width: 100%;
+    grid-template-columns: repeat(7, minmax(32px, 1fr));
+    gap: 8px;
+    justify-content: stretch;
+    margin-left: 0;
+  }
+
+  .day-chip {
+    width: 100%;
+    height: 36px;
+  }
+
+  .time-select,
+  .time-row {
+    align-items: stretch;
+  }
+
+  .time-row {
+    flex-wrap: wrap;
+  }
+
+  .time-box {
+    flex: 1 1 140px;
+    width: auto;
+  }
+
+  .time-separator {
+    height: var(--control-height);
+  }
+
   .status-grid,
   .status-detail-grid {
     grid-template-columns: 1fr;

@@ -1,54 +1,22 @@
 <template>
-
-  <div class="page">
     <Navbar />
+  <div class="page">
     <div class="page-header">
       <div>
-        <h2>タイムラプス管理</h2>
+        <h2><span class="title-icon">
+          <FontAwesomeIcon :icon="['fas', 'hourglass-half']" />
+        </span>タイムラプス管理</h2>
         <p class="sub">
           タイムラプスの作成・運用・書き出しを、この画面からまとめて行えます。
         </p>
       </div>
 
-      <button class="refresh-btn" @click="loadAll" :disabled="loading">
-        {{ loading ? "読込中..." : "更新" }}
+      <button class="refresh-btn" @click="loadAll" :disabled="loading" title="更新">
+        <FontAwesomeIcon :icon="byPrefixAndName.fas['arrow-rotate-right']" />
       </button>
     </div>
 
-    <div class="plugin-grid">
-      <button
-        v-for="card in pluginCards"
-        :key="card.key"
-        class="plugin-card"
-        :class="{ active: currentTab === card.key }"
-        @click="selectTab(card.key)"
-      >
-        <div class="plugin-icon">{{ card.icon }}</div>
-        <div class="plugin-body">
-          <div class="plugin-title">{{ card.label }}</div>
-          <div class="plugin-value">{{ card.value }}</div>
-          <div class="plugin-desc">{{ card.desc }}</div>
-        </div>
-      </button>
-    </div>
-
-    <div class="panel-switch">
-      <button
-        :class="{ active: currentTab === 'timelapse' }"
-        @click="selectTab('timelapse')"
-      >
-        Timelapse
-      </button>
-
-      <button
-        :class="{ active: currentTab === 'export' }"
-        @click="selectTab('export')"
-      >
-        Export
-      </button>
-    </div>
-
-    <div v-if="currentTab === 'timelapse'" class="panel">
+    <div class="panel">
       <div class="panel-header">
         <div>
           <h3>タイムラプス一覧</h3>
@@ -58,37 +26,30 @@
         </div>
 
         <div class="header-actions">
-          <button class="ghost-btn" @click="openCreateTimelapse">
+          <button class="create-timelapse-btn" @click="openCreateTimelapse">
             タイムラプス新規作成
           </button>
 
-          <button
-            v-if="showInlineEditor"
-            class="ghost-btn danger-ghost"
-            @click="closeTimelapseEditor"
-          >
-            閉じる
-          </button>
         </div>
       </div>
 
       <div class="stats-row">
-        <div class="stat-box">
+        <div class="stat-box-01">
           <div class="stat-label">スケジュール数</div>
           <div class="stat-value">{{ timelapseRows.length }}</div>
         </div>
 
-        <div class="stat-box">
+        <div class="stat-box-02">
           <div class="stat-label">有効</div>
           <div class="stat-value">{{ enabledTimelapseCount }}</div>
         </div>
 
-        <div class="stat-box">
+        <div class="stat-box-03">
           <div class="stat-label">稼働中</div>
           <div class="stat-value">{{ activeTimelapseCount }}</div>
         </div>
       </div>
-
+  </div>
       <div v-if="timelapseRows.length" class="table-wrap">
         <table class="table">
           <thead>
@@ -96,8 +57,8 @@
               <th>ID</th>
               <th>カメラ</th>
               <th>状態</th>
-              <th>スケジュール</th>
-              <th>最終実行</th>
+              <th class="schedule-field">スケジュール</th>
+              <th class="last-run-field">最終実行</th>
               <th>最終エラー</th>
               <th>操作</th>
             </tr>
@@ -118,9 +79,9 @@
                 </span>
               </td>
 
-              <td>{{ scheduleText(cam) }}</td>
+              <td class="schedule-field">{{ scheduleText(cam) }}</td>
 
-              <td>{{ formatTimestamp(cam.tl_last_run || cam.tl_last_file_at) }}</td>
+              <td class="last-run-field">{{ formatTimestamp(cam.tl_last_run || cam.tl_last_file_at) }}</td>
 
               <td class="error-cell">
                 {{ cam.last_error || "-" }}
@@ -129,19 +90,21 @@
               <td>
                 <div class="action-row">
                   <button
-                    class="small-btn ghost"
+                    class="icon-action-btn"
                     @click="editTimelapse(cam)"
                     :disabled="busyCameraId === cam.id"
+                    title="編集"
                   >
-                    編集
+                    <FontAwesomeIcon :icon="faPenToSquare" />
                   </button>
 
                   <button
-                    class="small-btn danger"
+                    class="icon-action-btn danger"
                     @click="deleteTimelapseConfigOnly(cam)"
                     :disabled="busyCameraId === cam.id"
+                    title="スケジュール削除"
                   >
-                    スケジュール削除
+                    <FontAwesomeIcon :icon="byPrefixAndName.fas['trash-can']" />
                   </button>
                 </div>
               </td>
@@ -153,40 +116,27 @@
       <div v-else class="empty-box">
         保存済みのタイムラプス設定はありません。
       </div>
-
-      <div v-if="showInlineEditor" class="inline-view">
-        <TimelapseView />
-      </div>
     </div>
 
-    <div v-else-if="currentTab === 'export'" class="panel export-panel">
-      <div class="panel-header">
-        <div>
-          <h3>エクスポート</h3>
-          <p class="sub">
-            保存済み画像を期間指定で読み込み、MP4 動画として書き出せます。
-          </p>
-        </div>
-      </div>
 
-      <TimelapseExportView />
-    </div>
-  </div>
   <Footer />
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from "vue"
 import { useRouter } from "vue-router"
+import { faArrowRotateRight, faPenToSquare, faTrashCan } from "@fortawesome/free-solid-svg-icons"
 import api from "../api/api"
-import TimelapseView from "./TimelapseView.vue"
-import TimelapseExportView from "./TimelapseExportView.vue"
 import Navbar from "../components/Navbar.vue"
 import Footer from "../components/Footer.vue"
 const router = useRouter()
+const byPrefixAndName = {
+  fas: {
+    "arrow-rotate-right": faArrowRotateRight,
+    "trash-can": faTrashCan
+  }
+}
 
-const currentTab = ref("timelapse")
-const showInlineEditor = ref(false)
 const loading = ref(false)
 const busyCameraId = ref(null)
 
@@ -220,32 +170,6 @@ const enabledTimelapseCount = computed(() => {
 const activeTimelapseCount = computed(() => {
   return timelapseRows.value.filter(cam => isTimelapseActive(cam)).length
 })
-
-const pluginCards = computed(() => [
-  {
-    key: "timelapse",
-    icon: "⏱️",
-    label: "Timelapse",
-    value: `${activeTimelapseCount.value}/${enabledTimelapseCount.value}`,
-    desc: "稼働中 / 有効"
-  },
-  {
-    key: "export",
-    icon: "🎞️",
-    label: "Export",
-    value: `${timelapseRows.value.length}`,
-    desc: "画像から動画を書き出し"
-  }
-])
-
-function selectTab(tab) {
-  currentTab.value = tab
-  showInlineEditor.value = false
-
-  if (tab !== "timelapse") {
-    localStorage.removeItem("timelapse_create_new")
-  }
-}
 
 function parseDays(str) {
   if (str == null || str === "") return []
@@ -379,13 +303,7 @@ async function updateCameraByHttp(payload) {
 function openCreateTimelapse() {
   localStorage.removeItem("timelapse_selected_camera_id")
   localStorage.setItem("timelapse_create_new", "1")
-  currentTab.value = "timelapse"
-  showInlineEditor.value = true
-}
-
-function closeTimelapseEditor() {
-  showInlineEditor.value = false
-  localStorage.removeItem("timelapse_create_new")
+  router.push("/timelapse")
 }
 
 async function editTimelapse(cam) {
@@ -423,7 +341,7 @@ async function editTimelapse(cam) {
 
   localStorage.setItem("timelapse_selected_camera_id", String(cam.id))
   localStorage.removeItem("timelapse_create_new")
-  showInlineEditor.value = true
+  router.push("/timelapse")
 }
 
 async function deleteTimelapseConfigOnly(cam) {
@@ -498,11 +416,10 @@ onMounted(async () => {
   background: var(--bg);
   color: var(--text-body);
   box-sizing: border-box;
+    margin-top: 64px;
 }
 
 .page-header,
-.plugin-grid,
-.panel-switch,
 .panel {
   width: min(1180px, calc(100% - 40px));
   margin-left: auto;
@@ -522,6 +439,19 @@ onMounted(async () => {
 .panel h3 {
   color: var(--text-heading);
 }
+.title-icon {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 15px;
+  margin-right: 16px;
+  flex: 0 0 34px;
+}
 
 .sub {
   margin: 6px 0 0 0;
@@ -530,42 +460,57 @@ onMounted(async () => {
 }
 
 .refresh-btn,
+.create-timelapse-btn,
 .ghost-btn,
-.small-btn,
-.panel-switch button,
-.plugin-card {
+.icon-action-btn {
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .refresh-btn,
-.ghost-btn,
-.panel-switch button,
-.small-btn {
+.create-timelapse-btn,
+.ghost-btn {
   border: none;
   border-radius: var(--radius-sm);
   padding: 10px 14px;
 }
 
 .refresh-btn {
-  background: var(--primary);
-  color: #fff;
-  font-weight: 600;
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: var(--primary);
   box-shadow: var(--shadow-sm);
+  font-size: 15px;
 }
 
-.refresh-btn:hover,
-.small-btn:hover,
-.ghost-btn:hover,
-.panel-switch button:hover {
+.refresh-btn:hover {
+  color: var(--primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.create-timelapse-btn {
+  background: var(--primary);
+  color: #fff;
+}
+
+.create-timelapse-btn:hover {
+  background: rgba(37, 99, 235);
+}
+
+.ghost-btn:hover {
   background: var(--primary-hover);
   color: #fff;
 }
 
 .refresh-btn:disabled,
+.create-timelapse-btn:disabled,
 .ghost-btn:disabled,
-.small-btn:disabled,
-.panel-switch button:disabled {
+.icon-action-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }
@@ -576,83 +521,13 @@ onMounted(async () => {
   flex-wrap: wrap;
 }
 
-.plugin-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.plugin-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  text-align: left;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  color: var(--text-body);
-  box-shadow: var(--shadow-sm);
-}
-
-.plugin-card.active {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px var(--primary) inset, var(--shadow-sm);
-}
-
-.plugin-icon {
-  width: 48px;
-  color: var(--primary);
-  font-size: 30px;
-  text-align: center;
-}
-
-.plugin-title {
-  color: var(--text-heading);
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.plugin-value {
-  margin-top: 4px;
-  color: var(--text-heading);
-  font-size: 22px;
-  font-weight: 600;
-}
-
-.plugin-desc {
-  margin-top: 4px;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.panel-switch {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-.panel-switch button {
-  background: var(--surface);
-  color: var(--text-body);
-  border: 1px solid var(--border);
-}
-
-.panel-switch button.active {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #fff;
-  font-weight: 600;
-}
-
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 18px;
+  padding: 24px 16px;
   box-shadow: var(--shadow-sm);
+  margin-top: 48px;
 }
 
 .panel-header {
@@ -669,12 +544,6 @@ onMounted(async () => {
   border: 1px solid var(--border);
 }
 
-.danger-ghost {
-  background: var(--error);
-  border-color: var(--error);
-  color: #fff;
-}
-
 .stats-row {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -682,8 +551,20 @@ onMounted(async () => {
   margin-bottom: 18px;
 }
 
-.stat-box {
-  background: var(--surface-alt);
+.stat-box-01 {
+  background-color: #DEF4E9;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+.stat-box-02 {
+  background-color: #FFF5D9;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px;
+}
+.stat-box-03 {
+  background-color: #E3E9FE;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 14px;
@@ -702,14 +583,23 @@ onMounted(async () => {
 }
 
 .table-wrap {
+  width: min(1180px, calc(100% - 40px));
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 24px;
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-body);
+  box-sizing: border-box;
+  box-shadow: var(--shadow-sm);
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
+  background: var(--surface);
 }
 
 .table th,
@@ -717,7 +607,7 @@ onMounted(async () => {
   padding: 12px 10px;
   border-bottom: 1px solid var(--border);
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
 }
 
 .table th {
@@ -778,36 +668,43 @@ onMounted(async () => {
 
 .action-row {
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.small-btn {
-  background: var(--primary);
-  color: #fff;
-  font-weight: 600;
-  padding: 8px 12px;
+.schedule-field,
+.last-run-field {
+  font-size: 14px;
+  vertical-align: middle;
 }
 
-.small-btn.ghost {
-  background: var(--surface-alt);
-  color: var(--text-body);
-  border: 1px solid var(--border);
+.icon-action-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+  font-size: 15px;
 }
 
-.small-btn.ghost:hover {
+.icon-action-btn:hover {
   background: var(--primary-soft);
   color: var(--primary-hover);
 }
 
-.small-btn.danger {
-  background: var(--error);
-  color: #fff;
+.icon-action-btn.danger {
+  color: var(--error);
 }
 
-.small-btn.danger:hover,
-.danger-ghost:hover {
-  background: #dc2626;
+.icon-action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
 }
 
 .empty-box {
@@ -818,21 +715,7 @@ onMounted(async () => {
   background: var(--surface-alt);
 }
 
-.inline-view {
-  margin-top: 20px;
-  border-top: 1px solid var(--border);
-  padding-top: 20px;
-}
-
-.export-panel {
-  padding-bottom: 24px;
-}
-
 @media (max-width: 1100px) {
-  .plugin-grid {
-    grid-template-columns: 1fr;
-  }
-
   .stats-row {
     grid-template-columns: 1fr;
   }

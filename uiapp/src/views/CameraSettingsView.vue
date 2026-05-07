@@ -1,11 +1,18 @@
 <script setup>
 import { ref, onMounted, computed } from "vue"
 import { useRouter } from "vue-router"
+import { faFileArrowDown } from "@fortawesome/free-solid-svg-icons"
 import api from "../api/api"
 import Navbar from "../components/Navbar.vue"
+import Footer from "../components/Footer.vue"
 
 
 const router = useRouter()
+const byPrefixAndName = {
+  fas: {
+    "file-arrow-down": faFileArrowDown
+  }
+}
 
 const DEFAULT_RTSP_PORT = 554
 const DEFAULT_HTTP_PORT = 80
@@ -483,7 +490,7 @@ onMounted(async () => {
     </div>
     <div class="page-header">
       <div>
-        <h2>カメラ管理</h2>
+        <h2><span><FontAwesomeIcon :icon="['fas', 'video']" /></span>カメラ管理</h2>
         <p class="sub">Web UIからカメラの追加・管理を行います。</p>
       </div>
 
@@ -581,8 +588,9 @@ onMounted(async () => {
             </td>
 
             <td>
-              <button class="save-btn" :disabled="savingIds.has(cam.id)" @click="saveCamera(cam)">
-                {{ savingIds.has(cam.id) ? "Saving..." : "SAVE" }}
+              <button class="save-btn" :disabled="savingIds.has(cam.id)" @click="saveCamera(cam)" title="Save">
+                <span v-if="savingIds.has(cam.id)" class="btn-spinner"></span>
+                <FontAwesomeIcon v-else :icon="byPrefixAndName.fas['file-arrow-down']" />
               </button>
             </td>
 
@@ -674,6 +682,7 @@ onMounted(async () => {
     </div>
     </div>
   </div>
+  <Footer />
 </template>
 
 <style scoped>
@@ -681,7 +690,7 @@ onMounted(async () => {
 
 .view-root {
   width: 100%;
-  min-height: calc(100vh - 60px);
+  min-height: calc(85vh - 60px);
   color: var(--text-body);
   padding: 20px;
   box-sizing: border-box;
@@ -694,6 +703,25 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
+}
+
+.page-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-header h2 span {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 16px;
+  flex: 0 0 36px;
 }
 
 .sub {
@@ -769,11 +797,20 @@ select {
   background: rgba(37, 99, 235);
 }
 .refresh-btn{
-    padding: 10px 14px;
+  padding: 10px 14px;
   border-radius: var(--radius-sm);
-   border: none;
-   background-color: var(--text-light-grey);
-   color: var(--text-body);
+  border: none;
+  background-color: #fff;
+  color: var(--primary);
+  box-shadow: var(--shadow-sm);
+  cursor: pointer;
+  transition: color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.refresh-btn:hover {
+  color: var(--primary-hover);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 /* button:hover {
@@ -786,27 +823,65 @@ button:disabled {
 }
 
 .save-btn {
-  background: var(--success);
-  color: #fff;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--success);
+  cursor: pointer;
+  font-size: 16px;
 }
 
 .save-btn:hover {
-  background: #059669;
+  color: #059669;
 }
 
 .delete-btn {
-  background: var(--error);
-  color: #fff;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--error);
+  cursor: pointer;
+  font-size: 16px;
 }
 
 .delete-btn:hover {
-  background: #f87171;
+  color: #f87171;
+}
+
+.btn-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 999px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 .cancel-btn{
   color: #fd0e0e;
   font-size: 14px;
   margin: 0px auto 0px auto;
-  background-color: none;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.cancel-btn:hover {
+  color: #b91c1c;
 }
 .add-cam-wrapper{
    position: relative;

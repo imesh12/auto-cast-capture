@@ -3,7 +3,7 @@
   <main class="page-body">
     <!-- page heading -->
     <div class="heading">
-      <h2>ライブラリー</h2>
+      <h2><span><FontAwesomeIcon :icon="['fab', 'buffer']" /></span>ライブラリー</h2>
       <p class="sub">保存済み画像を期間指定で読み込み、MP4 動画として書き出せます。</p>
     </div>
     <!-- page body -->
@@ -807,7 +807,23 @@ onBeforeUnmount(() => {
 }
 
 .heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-weight: 600;
+}
+
+.heading h2 span {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 16px;
+  flex: 0 0 36px;
 }
 
 .sub {
@@ -1170,7 +1186,7 @@ onBeforeUnmount(() => {
 .thumbs {
   background-color: var(--surface-alt);
   width: 100%;
-  max-height: 204px;
+  height: 204px;
   padding: 8px;
   border: solid 1px var(--border);
   border-radius: 6px;
