@@ -5,6 +5,7 @@ import ManualEventView from "./views/ManualEventView.vue"
 import TimelapseExportView from "./views/TimelapseExportView.vue"
 import TimelapseView from "./views/TimelapseView.vue"
 import LoginView from "./views/LoginView.vue"
+import TermsOfService from "./views/TermsOfService.vue"
 
 function hasToken() {
   return !!localStorage.getItem("auth_token")
@@ -18,6 +19,7 @@ const routes = [
   { path: "/manage-event", component: ManualEventView, meta: { requiresAuth: true } }, //タイムラプス管理
   { path: "/library", component: TimelapseExportView, meta: { requiresAuth: true } }, //ライブラリー
   { path: "/timelapse", component: TimelapseView, meta: { requiresAuth: true } }, //タイムラプス登録
+  { path: "/terms", component: TermsOfService },
   { path: "/:pathMatch(.*)*", redirect: "/manage-event" }
 ]
 

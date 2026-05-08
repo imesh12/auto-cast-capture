@@ -7,9 +7,7 @@
 
     <!-- RIGHT -->
     <div class="footer-right">
-      <a href="#">プライバシーポリシー</a>
-      <a href="#">クッキーポリシー</a>
-      <a href="#">利用規約</a>
+      <RouterLink to="/terms">利用規約</RouterLink>
     </div>
   </footer>
 </template>
