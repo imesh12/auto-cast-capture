@@ -1911,12 +1911,13 @@ function startWebApiServer(ctx) {
           }
 
           const files = fs.readdirSync(dir)
-            .filter(f => f.toLowerCase().endsWith(".jpg"))
+            .filter(f => isImageFile(f))
             .map(f => {
               const full = path.join(dir, f)
+              const stat = fs.statSync(full)
               return {
                 name: f,
-                time: getImageTimestamp(full, f),
+                time: stat.mtimeMs || getImageTimestamp(full, f),
                 path: full
               }
             })
@@ -1995,7 +1996,7 @@ function startWebApiServer(ctx) {
 
           res.writeHead(200, {
             "Content-Type": "application/zip",
-            "Content-Disposition": `attachment; filename="${zipName}"`,
+            "Content-Disposition": `attachment; filename="timelapse-images.zip"; filename*=UTF-8''${encodeURIComponent(zipName)}`,
             "Cache-Control": "no-store"
           })
 

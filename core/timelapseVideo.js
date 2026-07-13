@@ -275,9 +275,8 @@ async function buildVideoFromRange(
 
   const workDir = createWorkDir(camera.id)
   const safeCameraName = sanitizeName(camera.name || `camera_${camera.id}`)
-  const startLabel = formatDate(files[0].time)
-  const endLabel = formatDate(files[files.length - 1].time)
-  const baseFilename = `${safeCameraName}_${startLabel}_to_${endLabel}_x${speedFactor}.mp4`
+  const exportLabel = formatDate(Date.now())
+  const baseFilename = `${safeCameraName}_export_${exportLabel}_x${speedFactor}.mp4`
   const outFile = uniqueOutputPath(outDir, baseFilename)
   const filename = path.basename(outFile)
 

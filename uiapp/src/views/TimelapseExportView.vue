@@ -184,7 +184,7 @@
                 </div>
                 <div class="video-actions">
                   <button class="icon-btn-dark" @click="playVideo(v)" title="再生"><FontAwesomeIcon :icon="['fas', 'play']" /></button>
-                  <a class="icon-btn-blue" :href="withBase(v.url)" download title="ダウンロード"><FontAwesomeIcon :icon="['fas', 'download']" /></a>
+                  <button class="icon-btn-blue" @click="downloadVideo(v)" title="ダウンロード"><FontAwesomeIcon :icon="['fas', 'download']" /></button>
                   <button class="icon-btn-red" @click="deleteVideo(v.name)" title="削除"><FontAwesomeIcon :icon="['fas', 'trash-can']" /></button>
                 </div>
               </div>
@@ -254,8 +254,27 @@ const baseUrl =
 const cameras = ref([])
 const selectedCameraId = ref(null)
 
-const from = ref("")
-const to = ref("")
+function toDatetimeLocalValue(date) {
+  const pad = n => String(n).padStart(2, "0")
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function getDefaultRange() {
+  const start = new Date()
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date()
+  end.setHours(23, 59, 0, 0)
+
+  return {
+    from: toDatetimeLocalValue(start),
+    to: toDatetimeLocalValue(end)
+  }
+}
+
+const defaultRange = getDefaultRange()
+const from = ref(defaultRange.from)
+const to = ref(defaultRange.to)
 const fps = ref(12)
 
 const files = ref([])
@@ -513,13 +532,6 @@ function validateRange() {
     return false
   }
 
-  // Check if range is too large (more than 24 hours)
-  const durationHours = (toTime - fromTime) / (1000 * 60 * 60)
-  if (durationHours > 24) {
-    showToast("warning", "期間が長すぎます", "24時間以内の期間を選択してください。")
-    return false
-  }
-
   return true
 }
 
@@ -747,6 +759,35 @@ async function preview() {
 function cancelPreview() {
   if (abortController.value) {
     abortController.value.abort()
+  }
+}
+
+async function downloadVideo(v) {
+  try {
+    const res = await fetch(withBase(v.url), {
+      method: "GET",
+      headers: getAuthHeaders(),
+      credentials: "include"
+    })
+
+    if (res.status === 401) throw new Error("login required")
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+    const blob = await res.blob()
+    if (!blob || blob.size === 0) throw new Error("動画ファイルが空です。")
+
+    const downloadUrl = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = downloadUrl
+    a.download = String(v.name || "timelapse.mp4").replace(/\.json$/i, ".mp4")
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(downloadUrl)
+
+    showToast("success", "ダウンロード開始", "動画ダウンロードを開始しました。")
+  } catch (e) {
+    handleApiError(e, "ダウンロード失敗", "動画のダウンロードに失敗しました。")
   }
 }
 

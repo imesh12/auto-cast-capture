@@ -107,7 +107,7 @@ function getScheduleDecision(camera, now = new Date()) {
   const endHour = safeNumber(camera?.tl_end_hour, 24)
 
   if (!(startHour === 0 && endHour === 24)) {
-    if (hour < startHour || hour >= endHour) {
+    if (hour < startHour || hour > endHour) {
       return {
         ok: false,
         reason: "outside_time_range",
@@ -119,17 +119,63 @@ function getScheduleDecision(camera, now = new Date()) {
   }
 
   const intervalSec = Math.max(1, safeNumber(camera?.tl_interval, 600))
+  const intervalMs = intervalSec * 1000
   const lastRunMs = safeNumber(camera?.tl_last_run, 0)
   const nowMs = date.getTime()
-  const elapsedMs = nowMs - lastRunMs
 
-  if (lastRunMs > 0 && elapsedMs < intervalSec * 1000) {
+  const startMs = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    startHour,
+    0,
+    0,
+    0
+  ).getTime()
+
+  const endMs = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    endHour === 24 ? 24 : endHour,
+    0,
+    0,
+    0
+  ).getTime()
+
+  const lastSlotMs = endHour === 24 ? endMs - intervalMs : endMs
+
+  if (nowMs < startMs || nowMs >= lastSlotMs + intervalMs) {
+    return {
+      ok: false,
+      reason: "outside_time_range",
+      hour,
+      startHour,
+      endHour
+    }
+  }
+
+  const slotStartMs = startMs + Math.floor((nowMs - startMs) / intervalMs) * intervalMs
+
+  if (slotStartMs > lastSlotMs) {
+    return {
+      ok: false,
+      reason: "outside_time_range",
+      hour,
+      startHour,
+      endHour
+    }
+  }
+
+  if (lastRunMs >= slotStartMs) {
     return {
       ok: false,
       reason: "interval_not_reached",
       intervalSec,
-      elapsedMs,
-      remainMs: intervalSec * 1000 - elapsedMs
+      lastRunMs,
+      nowMs,
+      slotStartMs,
+      remainMs: slotStartMs + intervalMs - nowMs
     }
   }
 
@@ -144,6 +190,7 @@ function getScheduleDecision(camera, now = new Date()) {
     intervalSec,
     lastRunMs,
     nowMs,
+    slotStartMs,
     captureMode: readiness.captureMode,
     primaryMethod: readiness.primaryMethod,
     hasRtsp: readiness.hasRtsp,
