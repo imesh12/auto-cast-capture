@@ -143,6 +143,9 @@
               <div class="mini-card speed-card">
                 <div class="mini-label">再生速度</div>
                 <div class="speed-chip-row">
+                  <button type="button" class="speed-chip" :class="{ active: speed === 1 }" @click="speed = 1">
+                    1x
+                  </button>
                   <button type="button" class="speed-chip" :class="{ active: speed === 2 }" @click="speed = 2">
                     2x
                   </button>
