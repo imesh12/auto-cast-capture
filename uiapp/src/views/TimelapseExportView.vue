@@ -96,6 +96,54 @@
               削除
             </button>
           </div>
+          <div v-if="zipDownload.active" class="zip-download-panel">
+            <div class="zip-download-title">
+              {{ zipDownload.phase === "preparing" ? "ダウンロード準備中..." : "ZIPダウンロード中" }}
+            </div>
+            <div class="zip-download-count">
+              {{ zipDownload.imageCount > 0 ? `${zipDownload.imageCount}枚の画像をダウンロードしています。` : "画像をダウンロードしています。" }}
+            </div>
+            <div class="zip-download-warning">
+              <p>この画面を閉じたり、再読み込みしたりしないでください。</p>
+              <p>ダウンロードが中断される可能性があります。</p>
+            </div>
+            <div class="zip-download-progress-line">
+              {{ canShowZipPercent ? `進捗: ${zipDownload.percent}%` : "進捗を計算中..." }}
+            </div>
+            <div class="zip-progress-bar" :class="{ 'zip-progress-bar--indeterminate': !canShowZipPercent }">
+              <div
+                class="zip-progress-fill"
+                :class="{ 'zip-progress-fill--indeterminate': !canShowZipPercent }"
+                :style="canShowZipPercent ? { width: `${zipDownload.percent}%` } : {}"
+              ></div>
+            </div>
+            <div class="zip-download-stats">
+              <div class="zip-download-stat">
+                <span class="zip-download-label">ダウンロード済み:</span>
+                <span class="zip-download-value">
+                  {{ formatBytes(zipDownload.receivedBytes) }}
+                  <template v-if="zipDownload.estimatedBytes > 0">
+                    / 約{{ formatBytes(zipDownload.estimatedBytes) }}
+                  </template>
+                </span>
+              </div>
+              <div class="zip-download-stat">
+                <span class="zip-download-label">速度:</span>
+                <span class="zip-download-value">{{ formatSpeed(zipDownload.speedBytesPerSecond) }}</span>
+              </div>
+              <div class="zip-download-stat">
+                <span class="zip-download-label">経過時間:</span>
+                <span class="zip-download-value">{{ formatDuration(zipDownload.elapsedMs) }}</span>
+              </div>
+              <div class="zip-download-stat">
+                <span class="zip-download-label">残り時間:</span>
+                <span class="zip-download-value">{{ formatRemainingTime(zipDownload.remainingMs) }}</span>
+              </div>
+            </div>
+            <button type="button" class="zip-cancel-btn" @click="cancelZipDownload">
+              キャンセル
+            </button>
+          </div>
         </div>
       </div>
 
@@ -293,6 +341,18 @@ const latestImageBlobUrl = ref("")
 
 const isGenerating = ref(false)
 const downloadingImages = ref(false)
+const zipDownload = ref({
+  active: false,
+  phase: "idle",
+  receivedBytes: 0,
+  estimatedBytes: 0,
+  imageCount: 0,
+  percent: 0,
+  speedBytesPerSecond: 0,
+  elapsedMs: 0,
+  remainingMs: 0
+})
+const zipDownloadController = ref(null)
 const progressPercent = ref(0)
 const progressStage = ref("")
 const generateError = ref("")
@@ -456,6 +516,101 @@ function buildImageZipName() {
   return `${camName}_${fromText}_to_${toText}.zip`
 }
 
+function resetZipDownloadState() {
+  zipDownload.value = {
+    active: false,
+    phase: "idle",
+    receivedBytes: 0,
+    estimatedBytes: 0,
+    imageCount: 0,
+    percent: 0,
+    speedBytesPerSecond: 0,
+    elapsedMs: 0,
+    remainingMs: 0
+  }
+}
+
+function handleZipBeforeUnload(event) {
+  if (!zipDownload.value.active) return
+  event.preventDefault()
+  event.returnValue = ""
+}
+
+function setZipBeforeUnload(enabled) {
+  if (enabled) {
+    window.addEventListener("beforeunload", handleZipBeforeUnload)
+  } else {
+    window.removeEventListener("beforeunload", handleZipBeforeUnload)
+  }
+}
+
+function updateZipDownloadFromHeaders(res) {
+  const imageCount = Number(res.headers.get("X-Timelapse-Image-Count") || 0)
+  const estimatedBytes = Number(res.headers.get("X-Timelapse-Estimated-Bytes") || 0)
+
+  zipDownload.value.imageCount = Number.isFinite(imageCount) ? imageCount : 0
+  zipDownload.value.estimatedBytes = Number.isFinite(estimatedBytes) ? estimatedBytes : 0
+}
+
+function updateZipDownloadProgress(receivedBytes, startedAt) {
+  const elapsedMs = Math.max(0, Date.now() - startedAt)
+  const elapsedSeconds = elapsedMs / 1000
+  const estimatedBytes = Number(zipDownload.value.estimatedBytes || 0)
+  const speedBytesPerSecond = elapsedSeconds > 0 ? receivedBytes / elapsedSeconds : 0
+
+  zipDownload.value.receivedBytes = receivedBytes
+  zipDownload.value.elapsedMs = elapsedMs
+  zipDownload.value.speedBytesPerSecond = speedBytesPerSecond
+  zipDownload.value.percent = estimatedBytes > 0
+    ? Math.min(99, Math.floor((receivedBytes / estimatedBytes) * 100))
+    : 0
+  zipDownload.value.remainingMs =
+    estimatedBytes > receivedBytes && speedBytesPerSecond > 0
+      ? ((estimatedBytes - receivedBytes) / speedBytesPerSecond) * 1000
+      : 0
+}
+
+function formatBytes(bytes) {
+  const safeBytes = Number(bytes || 0)
+  if (!Number.isFinite(safeBytes) || safeBytes <= 0) return "0 KB"
+
+  if (safeBytes < 1024 * 1024) {
+    const kb = safeBytes / 1024
+    return kb >= 10 ? `${kb.toFixed(0)} KB` : `${kb.toFixed(1)} KB`
+  }
+
+  return `${(safeBytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function formatSpeed(bytesPerSecond) {
+  const safeSpeed = Number(bytesPerSecond || 0)
+  if (!Number.isFinite(safeSpeed) || safeSpeed <= 0) return "計算中..."
+  return `${formatBytes(safeSpeed)}/s`
+}
+
+function formatDuration(ms) {
+  const safeMs = Number(ms || 0)
+  if (!Number.isFinite(safeMs) || safeMs <= 0) return "0秒"
+
+  const totalSeconds = Math.max(0, Math.floor(safeMs / 1000))
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+
+  if (hours > 0) {
+    return `${hours}時間${String(minutes).padStart(2, "0")}分${String(seconds).padStart(2, "0")}秒`
+  }
+
+  if (totalSeconds < 60) return `${totalSeconds}秒`
+  return `${minutes}分${String(seconds).padStart(2, "0")}秒`
+}
+
+function formatRemainingTime(ms) {
+  const safeMs = Number(ms || 0)
+  if (!Number.isFinite(safeMs) || safeMs <= 0) return "計算中..."
+  return `約${formatDuration(safeMs)}`
+}
+
 function startFakeProgress() {
   stopFakeProgress()
   progressPercent.value = 0
@@ -597,8 +752,14 @@ async function loadFiles() {
 
 async function downloadImagesZip() {
   if (!validateRange()) return
+  if (downloadingImages.value) return
 
+  resetZipDownloadState()
   downloadingImages.value = true
+  zipDownload.value.active = true
+  zipDownload.value.phase = "preparing"
+  zipDownloadController.value = new AbortController()
+  setZipBeforeUnload(true)
 
   try {
     const url =
@@ -608,7 +769,8 @@ async function downloadImagesZip() {
     const res = await fetch(url, {
       method: "GET",
       headers: getAuthHeaders(),
-      credentials: "include"
+      credentials: "include",
+      signal: zipDownloadController.value.signal
     })
 
     if (res.status === 401) throw new Error("login required")
@@ -622,7 +784,38 @@ async function downloadImagesZip() {
       throw new Error(errorMessage)
     }
 
-    const blob = await res.blob()
+    updateZipDownloadFromHeaders(res)
+
+    let blob = null
+    if (res.body && typeof res.body.getReader === "function") {
+      zipDownload.value.phase = "downloading"
+      const reader = res.body.getReader()
+      const chunks = []
+      let receivedBytes = 0
+      const startedAt = Date.now()
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        if (!value) continue
+
+        chunks.push(value)
+        receivedBytes += value.byteLength
+        updateZipDownloadProgress(receivedBytes, startedAt)
+      }
+
+      blob = new Blob(chunks, { type: "application/zip" })
+      updateZipDownloadProgress(blob.size, startedAt)
+      zipDownload.value.percent = 100
+      zipDownload.value.remainingMs = 0
+      zipDownload.value.phase = "completed"
+    } else {
+      blob = await res.blob()
+      zipDownload.value.receivedBytes = blob.size
+      zipDownload.value.percent = 0
+      zipDownload.value.phase = "completed"
+    }
+
     if (!blob || blob.size === 0) throw new Error("ZIPファイルが空です。")
 
     const downloadUrl = URL.createObjectURL(blob)
@@ -636,10 +829,22 @@ async function downloadImagesZip() {
 
     showToast("success", "ZIP作成完了", "画像ZIPのダウンロードを開始しました。")
   } catch (e) {
+    if (e?.name === "AbortError") {
+      showToast("info", "キャンセル", "ダウンロードをキャンセルしました。")
+      return
+    }
+
     handleApiError(e, "ZIP失敗", "画像ZIPの作成に失敗しました。")
   } finally {
+    zipDownloadController.value = null
+    setZipBeforeUnload(false)
+    resetZipDownloadState()
     downloadingImages.value = false
   }
+}
+
+function cancelZipDownload() {
+  zipDownloadController.value?.abort()
 }
 
 async function deleteFiles() {
@@ -830,6 +1035,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  zipDownloadController.value?.abort()
+  setZipBeforeUnload(false)
   stopFakeProgress()
   hideToast()
   cleanupObjectUrls()
@@ -1295,6 +1502,101 @@ onBeforeUnmount(() => {
   margin-top: 0;
 }
 
+.zip-download-panel {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 14px;
+}
+
+.zip-download-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.zip-download-count {
+  margin-top: 10px;
+  color: var(--text-body);
+}
+
+.zip-download-warning {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.zip-download-warning p {
+  margin: 0;
+}
+
+.zip-download-progress-line {
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.zip-progress-bar {
+  margin-top: 10px;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+}
+
+.zip-progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--primary);
+  transition: width 0.25s ease;
+}
+
+.zip-progress-bar--indeterminate .zip-progress-fill--indeterminate {
+  width: 30%;
+  animation: zip-progress-slide 1.2s ease-in-out infinite;
+}
+
+.zip-download-stats {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.zip-download-stat {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.zip-download-label {
+  color: var(--text-muted);
+}
+
+.zip-download-value {
+  color: var(--text-heading);
+  font-weight: 600;
+  text-align: right;
+}
+
+.zip-cancel-btn {
+  margin-top: 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  cursor: pointer;
+  background: var(--error);
+  color: #fff;
+  font-size: 14px;
+}
+
 /* ===== VIDEO SECTION ===== */
 .video-controls-grid {
   display: grid;
@@ -1315,6 +1617,12 @@ onBeforeUnmount(() => {
   padding: 10px;
 }
 
+.speed-chip-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
 .speed-chip {
   border-radius: 999px;
   padding: 6px 12px;
@@ -1322,10 +1630,8 @@ onBeforeUnmount(() => {
   background: var(--surface);
   font-size: 12px;
   cursor: pointer;
-}
-
-.speed-chip {
-  margin-right: 16px;
+  margin-right: 0;
+  flex: 0 0 auto;
 }
 
 .speed-chip.active {
@@ -1581,8 +1887,23 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
+  .zip-download-stat {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .bottom-top {
     align-items: stretch;
+  }
+}
+
+@keyframes zip-progress-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  100% {
+    transform: translateX(320%);
   }
 }
 </style>

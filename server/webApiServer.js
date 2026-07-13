@@ -1981,7 +1981,8 @@ function startWebApiServer(ctx) {
               return {
                 name,
                 fullPath,
-                ts
+                ts,
+                size: Number(stat.size || 0)
               }
             })
             .filter(f => f.ts >= from && f.ts <= to)
@@ -1991,13 +1992,20 @@ function startWebApiServer(ctx) {
             return writeJson(res, 404, { ok: false, error: "no images found in selected range" })
           }
 
+          const estimatedBytes = matchedFiles.reduce(
+            (sum, file) => sum + Number(file.size || 0),
+            0
+          )
+
           const cameraName = safeDownloadName(camera.name || `camera_${camera.id}`)
           const zipName = `${cameraName}_${from}_${to}.zip`
 
           res.writeHead(200, {
             "Content-Type": "application/zip",
             "Content-Disposition": `attachment; filename="timelapse-images.zip"; filename*=UTF-8''${encodeURIComponent(zipName)}`,
-            "Cache-Control": "no-store"
+            "Cache-Control": "no-store",
+            "X-Timelapse-Image-Count": String(matchedFiles.length),
+            "X-Timelapse-Estimated-Bytes": String(estimatedBytes)
           })
 
           const archive = archiver("zip", { zlib: { level: 9 } })
